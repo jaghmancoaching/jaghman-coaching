@@ -2273,6 +2273,44 @@ function JoinCoach({ onBack }) {
    11.8 لوحة تحكم المسؤول (Admin Panel)
    في الإنتاج: خلف مصادقة دور "مسؤول" (Role-based Auth) حصراً
    ═══════════════════════════════════════════════════════════════ */
+// كلمة سر لوحة الإدارة — لا تُفتح اللوحة إلا بها
+const ADMIN_PASSWORD = "JAGHMANcoaching1993";
+
+// شاشة تسجيل دخول المسؤول
+function AdminGate({ onBack, onUnlock }) {
+  const [pass, setPass] = useState("");
+  const [error, setError] = useState(false);
+  const submit = () => {
+    if (pass === ADMIN_PASSWORD) onUnlock();
+    else { setError(true); setPass(""); }
+  };
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4 relative">
+      <button onClick={onBack}
+        className="absolute top-5 right-5 flex items-center gap-1 text-sm font-bold text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 hover:border-zinc-600 px-4 py-2 rounded-xl transition-colors">
+        <ChevronRight size={16} /> رجوع
+      </button>
+      <div className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
+        <div className="bg-amber-400/15 rounded-2xl w-14 h-14 flex items-center justify-center mb-4">
+          <Lock size={26} className="text-amber-300" />
+        </div>
+        <h2 className="text-2xl font-black mb-1">لوحة الإدارة 🔐</h2>
+        <p className="text-zinc-400 text-sm mb-6">هذه المنطقة خاصة بالمسؤول فقط. أدخل كلمة السر للمتابعة.</p>
+        <input type="password" value={pass} autoFocus
+          onChange={(e) => { setPass(e.target.value); setError(false); }}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+          placeholder="كلمة السر" dir="ltr"
+          className={`w-full bg-zinc-950 border rounded-xl px-4 py-3 placeholder-zinc-600 focus:outline-none text-center ${error ? "border-rose-500 focus:border-rose-500" : "border-zinc-700 focus:border-amber-400"}`} />
+        {error && <p className="text-rose-400 text-xs font-bold mt-2 text-center">كلمة السر غير صحيحة</p>}
+        <button onClick={submit} disabled={!pass}
+          className="w-full mt-4 bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-zinc-950 font-black py-3.5 rounded-xl transition-colors">
+          دخول
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AdminPanel({ onBack, coupons, setCoupons }) {
   const site = useSite();
   const [tab, setTab] = useState("overview");
@@ -2677,6 +2715,7 @@ function Dashboard({ profile, plan, onUpgrade }) {
 
 export default function App() {
   const [view, setView] = useState("landing");
+  const [adminUnlocked, setAdminUnlocked] = useState(false);
   const [profile, setProfile] = useState(null);
   const [plan, setPlan] = useState(null);
   const [site, setSite] = useState({ connected: false });
@@ -2712,7 +2751,9 @@ export default function App() {
       {view === "coaches" && <CoachesHub onBack={() => setView("landing")} onSubscribe={() => setView(profile ? "plans" : "onboarding")}
         onJoin={() => setView("join")} isSubscriber={!!plan} userName={profile?.name} />}
       {view === "join" && <JoinCoach onBack={() => setView("landing")} />}
-      {view === "admin" && <AdminPanel onBack={() => setView("landing")} coupons={coupons} setCoupons={setCoupons} />}
+      {view === "admin" && (adminUnlocked
+        ? <AdminPanel onBack={() => { setView("landing"); setAdminUnlocked(false); }} coupons={coupons} setCoupons={setCoupons} />
+        : <AdminGate onBack={() => setView("landing")} onUnlock={() => setAdminUnlocked(true)} />)}
       {view === "library" && <FreeLibrary onBack={() => setView("landing")} onSubscribe={() => setView("onboarding")} onLogin={() => setView("login")} />}
       {view === "login" && <Login onBack={() => setView("landing")} onLogin={() => setView(profile && plan ? "dashboard" : "onboarding")} />}
       {view === "onboarding" && <Onboarding onDone={(p) => { setProfile(p); setView("plans"); }} onBack={() => setView("landing")} />}
