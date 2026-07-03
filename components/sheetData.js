@@ -6,7 +6,7 @@
  */
 
 // ⚠️ الصق هنا رابط الـ Web App الذي حصلت عليه من Apps Script (خطوة النشر)
-export const SHEET_API_URL = "https://script.google.com/macros/s/ضع_رابطك_هنا/exec";
+export const SHEET_API_URL = "https://script.google.com/macros/s/AKfycbxAsS7Uz-OH7iQE3IlB6iRmgQ1dmsX0XT5F7tqbJbYBN2RBxqrQMBhSsj6YFhOsKcZ6mg/exec";
 
 // كلمة السر نفسها الموجودة في Apps Script (لقراءة قائمة المشتركين)
 export const ADMIN_SECRET = "jaghman2026";
