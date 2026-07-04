@@ -10,7 +10,7 @@ import {
 import { BarChart, Bar } from "recharts";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
-import { loadSiteData, loadSubscribers, saveSubscriber, saveReview, saveCoachApplication } from "./sheetData";
+import { loadSiteData, loadSubscribers, saveSubscriber, saveReview, saveCoachApplication, signupAccount, loginAccount, activateAccount } from "./sheetData";
 
 // سياق يوفّر بيانات الجدول لكل مكونات الموقع
 const SiteData = React.createContext({ connected: false });
@@ -674,8 +674,6 @@ function Plans({ onSubscribed, currentPlan, onBack, coupons }) {
   const isUpgrade = currentPlan?.tier === "basic";
   const [tier, setTier] = useState(isUpgrade ? "premium" : "basic");
   const [selected, setSelected] = useState(null);
-  const [paying, setPaying] = useState(false);
-  const [done, setDone] = useState(false);
   // الأسعار وروابط الدفع من جدول جوجل إن توفرت، وإلا الافتراضية المدمجة
   const LIVE = React.useMemo(() => {
     if (site.connected && site.plans) {
@@ -693,6 +691,11 @@ function Plans({ onSubscribed, currentPlan, onBack, coupons }) {
   // كود خصم (من لوحة الإدارة) أو كود إحالة (عمولة 10% لصاحبه)
   const [code, setCode] = useState("");
   const [applied, setApplied] = useState(null);
+  // حالات تسجيل الحساب
+  const [reg, setReg] = useState({ name: "", username: "", password: "" });
+  const [regLoading, setRegLoading] = useState(false);
+  const [regDone, setRegDone] = useState(null);
+  const [regErr, setRegErr] = useState("");
   const couponCut = (op) => {
     if (applied?.kind !== "coupon") return 0;
     const base = finalOf(op);
@@ -705,26 +708,6 @@ function Plans({ onSubscribed, currentPlan, onBack, coupons }) {
     if (c) setApplied({ kind: "coupon", c });
     else if (/^JAGH-/.test(v)) setApplied({ kind: "ref", v });
     else setApplied({ kind: "bad" });
-  };
-
-  const pay = () => {
-    // إن كان للباقة رابط Stripe حقيقي، وجّه المستخدم إليه للدفع الفعلي
-    if (selected?.stripeLink && !selected.stripeLink.includes("ضع_رابطك")) {
-      window.location.href = selected.stripeLink;
-      return;
-    }
-    setPaying(true);
-    setTimeout(() => {
-      setPaying(false); setDone(true);
-      const myRef = "JAGH-" + Math.random().toString(36).slice(2, 7).toUpperCase();
-      // سجّل المشترك في جدول جوجل (إن كان مربوطاً)
-      if (site.connected) saveSubscriber({
-        name: currentPlan?.name || "مشترك", plan: t.label + " · " + selected.name,
-        tier, amount: payable(selected), goal: "", myRefCode: myRef,
-        refCode: applied?.kind === "ref" ? applied.v : "",
-      });
-      setTimeout(() => onSubscribed({ tier, tierLabel: t.label, ...selected, paid: payable(selected), myRefCode: myRef }), 1200);
-    }, 1600);
   };
 
   return (
@@ -806,61 +789,93 @@ function Plans({ onSubscribed, currentPlan, onBack, coupons }) {
         <p className="text-xs text-zinc-500 mt-5">تريد متابعة شخصية مع المدرب مرتين أسبوعياً ومجتمعاً خاصاً؟ جرّب <button onClick={() => setTier("premium")} className="text-amber-300 font-bold underline">Premium</button></p>
       )}
 
-      {/* بوابة الدفع التجريبية */}
-      <Modal open={!!selected} onClose={() => !paying && setSelected(null)}>
+      {/* تسجيل حساب + طلب الاشتراك عبر واتساب — تحصيل يدوي آمن */}
+      <Modal open={!!selected} onClose={() => { setSelected(null); setReg({ name: "", username: "", password: "" }); setRegDone(null); }}>
         <div className="p-7">
-          <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold px-3 py-2 rounded-lg mb-5">
-            <Shield size={14} /> بوابة دفع تجريبية (Sandbox) — لن يتم خصم أي مبلغ حقيقي
-          </div>
-          {done ? (
-            <div className="text-center py-8">
-              <div className="bg-emerald-500/15 border border-emerald-500/40 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-                <Check size={32} className="text-emerald-400" />
-              </div>
-              <h3 className="font-black text-xl">{isUpgrade ? "تمت الترقية إلى Premium! 👑" : "تم تفعيل اشتراكك! 🎉"}</h3>
-              <p className="text-zinc-400 text-sm mt-1">جارٍ نقلك إلى لوحة التحكم...</p>
-            </div>
-          ) : (
-            <>
-              <h3 className="font-black text-xl mb-1">إتمام الدفع — {t.label} · {selected?.name}</h3>
-              {credit > 0 ? (
-                <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-3 mb-5 text-sm space-y-1.5">
-                  <p className="flex justify-between text-zinc-300"><span>سعر الباقة</span><span>{selected?.total}€</span></p>
-                  <p className="flex justify-between text-emerald-400"><span>🎁 خصم اشتراكك الأساسي</span><span>−{credit}€</span></p>
-                  <p className="flex justify-between font-black border-t border-zinc-800 pt-1.5"><span>الإجمالي</span><span>{selected ? finalOf(selected) : 0}€</span></p>
+          {(() => {
+            const finalPrice = payable(selected || { total: 0 });
+            const regOk = reg.name.trim() && reg.username.trim().length >= 3 && reg.password.length >= 4;
+            const waMsg = encodeURIComponent(
+              `مرحباً كابتن جغمان 👋\nسجّلت حساباً وأريد الاشتراك في:\n▪️ ${t.label} — ${selected?.name}\n▪️ السعر: ${finalPrice}€\n▪️ اسم المستخدم: ${reg.username}${code && applied?.kind !== "bad" ? `\n▪️ الكود: ${code}` : ""}\n\nكيف أكمل الدفع؟`
+            );
+            const waHref = `https://wa.me/${COACH_WHATSAPP}?text=${waMsg}`;
+
+            const doSignup = async () => {
+              setRegLoading(true);
+              const res = await signupAccount({
+                name: reg.name, username: reg.username, password: reg.password,
+                plan: t.label + " · " + selected.name, tier, goal: "",
+                amount: finalPrice, refCode: applied?.kind === "ref" ? applied.v : "",
+              });
+              setRegLoading(false);
+              if (res.ok) setRegDone(waHref);
+              else if (res.error === "username_taken") setRegErr("اسم المستخدم محجوز، اختر غيره");
+              else setRegDone(waHref); // في وضع المعاينة أو تعذّر الاتصال، أكمل لواتساب
+            };
+
+            // بعد التسجيل الناجح: اعرض زر واتساب
+            if (regDone) return (
+              <div className="text-center">
+                <div className="bg-emerald-500/15 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                  <Check size={30} className="text-emerald-400" />
                 </div>
-              ) : (
-                <p className="text-zinc-400 text-sm mb-5">الإجمالي: <span className="text-white font-bold">{selected?.total}€</span> <span className="text-zinc-500">({selected?.per})</span></p>
-              )}
-              <div className="flex gap-2 mb-3">
-                <input value={code} onChange={(e) => { setCode(e.target.value); setApplied(null); }}
-                  placeholder="كود خصم أو إحالة (اختياري)" dir="ltr"
-                  className="flex-1 bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm placeholder-zinc-600 focus:border-amber-400 focus:outline-none" />
-                <button onClick={applyCode} disabled={!code.trim()}
-                  className="text-sm font-black border border-amber-400/50 text-amber-300 hover:bg-amber-400/10 disabled:opacity-40 px-4 rounded-xl transition-colors">تطبيق</button>
+                <h3 className="font-black text-xl mb-1">تم إنشاء حسابك! 🎉</h3>
+                <p className="text-zinc-400 text-sm mb-5 leading-relaxed">
+                  حسابك الآن <b className="text-amber-300">بانتظار تأكيد الدفع</b>. تواصل مع المدرب لإتمام الدفع، وسيُفعّل حسابك خلال دقائق.
+                </p>
+                <a href={regDone} target="_blank" rel="noreferrer"
+                  className="w-full bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2">
+                  <MessageCircle size={20} /> تواصل لإتمام الدفع ({finalPrice}€)
+                </a>
+                <p className="text-[11px] text-zinc-600 mt-3">بعد الدفع، سجّل دخولك باسم المستخدم وكلمة المرور.</p>
               </div>
-              {applied?.kind === "coupon" && selected && (
-                <p className="text-xs text-emerald-400 font-bold mb-3">✓ كوبون {applied.c.code}: خصم {couponCut(selected)}€ — الإجمالي الجديد {payable(selected)}€</p>
-              )}
-              {applied?.kind === "ref" && (
-                <p className="text-xs text-sky-400 font-bold mb-3">✓ كود إحالة صالح — سيحصل صاحبه على عمولة 10% تلقائياً بعد إتمام اشتراكك 🎁</p>
-              )}
-              {applied?.kind === "bad" && <p className="text-xs text-rose-400 font-bold mb-3">✗ الكود غير صالح أو موقوف</p>}
-              <div className="space-y-3">
-                <input placeholder="رقم البطاقة — 4242 4242 4242 4242" dir="ltr"
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-3 placeholder-zinc-600 focus:border-amber-400 focus:outline-none" />
-                <div className="grid grid-cols-2 gap-3">
-                  <input placeholder="MM / YY" dir="ltr" className="bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-3 placeholder-zinc-600 focus:border-amber-400 focus:outline-none" />
-                  <input placeholder="CVC" dir="ltr" className="bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-3 placeholder-zinc-600 focus:border-amber-400 focus:outline-none" />
+            );
+
+            return (
+              <>
+                <h3 className="font-black text-xl text-center mb-1">أنشئ حسابك — {selected?.name}</h3>
+                <p className="text-zinc-400 text-sm text-center mb-5">
+                  سجّل بياناتك أولاً، ثم أكمل الدفع مع المدرب لتفعيل اشتراكك.
+                </p>
+
+                {/* ملخص السعر */}
+                <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-3 mb-4 text-sm">
+                  <p className="flex justify-between"><span className="text-zinc-400">{t.label} · {selected?.name}</span><span className="font-black text-amber-300">{finalPrice}€</span></p>
                 </div>
-                <input placeholder="الاسم على البطاقة" className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-3 placeholder-zinc-600 focus:border-amber-400 focus:outline-none" />
-              </div>
-              <button onClick={pay} disabled={paying}
-                className="w-full mt-5 bg-amber-400 hover:bg-amber-300 disabled:opacity-60 text-zinc-950 font-black py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2">
-                {paying ? <><RefreshCw size={18} className="animate-spin" /> جارٍ المعالجة...</> : selected && payable(selected) === 0 ? "فعّل الترقية مجاناً 🎉" : `ادفع ${selected ? payable(selected) : 0}€ الآن`}
-              </button>
-            </>
-          )}
+
+                {/* حقول التسجيل */}
+                <div className="space-y-3">
+                  <input value={reg.name} onChange={(e) => { setReg({ ...reg, name: e.target.value }); setRegErr(""); }}
+                    placeholder="الاسم الكامل"
+                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-3 placeholder-zinc-600 focus:border-amber-400 focus:outline-none" />
+                  <input value={reg.username} onChange={(e) => { setReg({ ...reg, username: e.target.value.replace(/\s/g, "") }); setRegErr(""); }}
+                    placeholder="اسم المستخدم (للدخول لاحقاً)" dir="ltr"
+                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-3 placeholder-zinc-600 focus:border-amber-400 focus:outline-none" />
+                  <input type="password" value={reg.password} onChange={(e) => { setReg({ ...reg, password: e.target.value }); setRegErr(""); }}
+                    placeholder="كلمة المرور (4 أحرف على الأقل)" dir="ltr"
+                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-3 placeholder-zinc-600 focus:border-amber-400 focus:outline-none" />
+                </div>
+
+                {/* كود خصم/إحالة */}
+                <div className="flex gap-2 mt-3">
+                  <input value={code} onChange={(e) => { setCode(e.target.value); setApplied(null); }}
+                    placeholder="كود خصم أو إحالة (اختياري)" dir="ltr"
+                    className="flex-1 bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm placeholder-zinc-600 focus:border-amber-400 focus:outline-none" />
+                  <button onClick={applyCode} disabled={!code.trim()}
+                    className="text-sm font-black border border-amber-400/50 text-amber-300 hover:bg-amber-400/10 disabled:opacity-40 px-4 rounded-xl transition-colors">تطبيق</button>
+                </div>
+                {applied?.kind === "coupon" && <p className="text-xs text-emerald-400 font-bold mt-2 text-center">✓ تم تطبيق الكوبون</p>}
+                {applied?.kind === "ref" && <p className="text-xs text-sky-400 font-bold mt-2 text-center">✓ كود إحالة صالح 🎁</p>}
+                {applied?.kind === "bad" && <p className="text-xs text-rose-400 font-bold mt-2 text-center">✗ الكود غير صالح</p>}
+                {regErr && <p className="text-xs text-rose-400 font-bold mt-2 text-center">{regErr}</p>}
+
+                <button onClick={doSignup} disabled={!regOk || regLoading}
+                  className="w-full mt-5 bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-zinc-950 font-black py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2">
+                  {regLoading ? <><RefreshCw size={18} className="animate-spin" /> جارٍ إنشاء الحساب...</> : "إنشاء الحساب والمتابعة للدفع"}
+                </button>
+              </>
+            );
+          })()}
         </div>
       </Modal>
     </div>
@@ -1900,8 +1915,31 @@ function FreeLibrary({ onBack, onSubscribe, onLogin }) {
 
 // تسجيل دخول المشتركين — لوحة التحكم خلف بوابة آمنة
 function Login({ onBack, onLogin }) {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [pass, setPass] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState(null); // {type, text}
+
+  const doLogin = async () => {
+    if (!username.trim() || !pass) return;
+    setLoading(true); setMsg(null);
+    const res = await loginAccount(username.trim(), pass);
+    setLoading(false);
+    if (res.ok) {
+      onLogin({ name: res.name, plan: res.plan, tier: res.tier, goal: res.goal });
+    } else if (res.error === "pending") {
+      setMsg({ type: "warn", text: `مرحباً ${res.name || ""} — حسابك بانتظار تأكيد الدفع. تواصل مع المدرب لتفعيله.` });
+    } else if (res.error === "wrong_password") {
+      setMsg({ type: "err", text: "كلمة المرور غير صحيحة" });
+    } else if (res.error === "not_found") {
+      setMsg({ type: "err", text: "اسم المستخدم غير موجود" });
+    } else if (res.error === "demo") {
+      setMsg({ type: "warn", text: "تسجيل الدخول يعمل بعد ربط الموقع بجدول جوجل ونشره." });
+    } else {
+      setMsg({ type: "err", text: "تعذّر تسجيل الدخول، حاول مجدداً" });
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative">
       <button onClick={onBack}
@@ -1911,19 +1949,27 @@ function Login({ onBack, onLogin }) {
       <div className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
         <img src={JAGHMAN_LOGO} alt="Jaghman Coaching" className="w-48 mx-auto mb-4" />
         <h2 className="text-2xl font-black mb-1">دخول المشتركين 🔐</h2>
-        <p className="text-zinc-400 text-sm mb-6">لوحة تحكمك خاصة وآمنة — كل مشترك يرى برنامجه وبياناته فقط.</p>
+        <p className="text-zinc-400 text-sm mb-6">أدخل اسم المستخدم وكلمة المرور اللذين سجّلت بهما.</p>
         <div className="space-y-3">
-          <input type="email" placeholder="البريد الإلكتروني" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)}
+          <input placeholder="اسم المستخدم" dir="ltr" value={username}
+            onChange={(e) => { setUsername(e.target.value.replace(/\s/g, "")); setMsg(null); }}
             className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-3 placeholder-zinc-600 focus:border-amber-400 focus:outline-none" />
-          <input type="password" placeholder="كلمة المرور" dir="ltr" value={pass} onChange={(e) => setPass(e.target.value)}
+          <input type="password" placeholder="كلمة المرور" dir="ltr" value={pass}
+            onChange={(e) => { setPass(e.target.value); setMsg(null); }}
+            onKeyDown={(e) => e.key === "Enter" && doLogin()}
             className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-3 placeholder-zinc-600 focus:border-amber-400 focus:outline-none" />
         </div>
-        <button disabled={!email || !pass} onClick={onLogin}
-          className="w-full mt-5 bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-zinc-950 font-black py-3.5 rounded-xl transition-colors">
-          دخول
+        {msg && (
+          <p className={`text-xs font-bold mt-3 text-center leading-relaxed ${msg.type === "err" ? "text-rose-400" : "text-amber-300"}`}>
+            {msg.text}
+          </p>
+        )}
+        <button disabled={!username || !pass || loading} onClick={doLogin}
+          className="w-full mt-5 bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-zinc-950 font-black py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2">
+          {loading ? <><RefreshCw size={18} className="animate-spin" /> جارٍ التحقق...</> : "دخول"}
         </button>
-        <p className="text-[11px] text-zinc-600 mt-4 leading-relaxed">
-          نسخة تجريبية — عند النشر يُربط هذا النموذج بنظام مصادقة حقيقي (JWT / OAuth) عبر الخادم، مع جلسات مشفرة لكل مستخدم.
+        <p className="text-[11px] text-zinc-600 mt-4 text-center">
+          ليس لديك حساب؟ اختر باقة من الصفحة الرئيسية لإنشاء حسابك.
         </p>
       </div>
     </div>
@@ -2316,15 +2362,30 @@ function AdminPanel({ onBack, coupons, setCoupons }) {
   const [tab, setTab] = useState("overview");
   const [q, setQ] = useState("");
   const [liveSubs, setLiveSubs] = useState(null);
-  // اجلب المشتركين الحقيقيين من جدول جوجل عند فتح اللوحة
+  const [accounts, setAccounts] = useState([]); // الحسابات (للتفعيل)
+  const [actMsg, setActMsg] = useState("");
+  // اجلب المشتركين والحسابات الحقيقية من جدول جوجل عند فتح اللوحة
   useEffect(() => {
-    if (site.connected) loadSubscribers().then((rows) => {
-      if (rows && rows.length) setLiveSubs(rows.map((r) => ({
+    if (site.connected) loadSubscribers().then((data) => {
+      const rows = data.subscribers || [];
+      if (rows.length) setLiveSubs(rows.map((r) => ({
         n: r.name, pl: r.plan, d: r.date ? String(r.date).slice(0, 10) : "",
         st: r.status || "مدفوع", left: 30, g: r.goal || "-", coach: r.coach || "جغمان",
       })));
+      setAccounts(data.accounts || []);
     });
   }, [site.connected]);
+
+  const activateUser = async (username, status) => {
+    setActMsg("جارٍ...");
+    const res = await activateAccount(username, status);
+    if (res.ok) {
+      setAccounts((prev) => prev.map((a) => a.username === username ? { ...a, status } : a));
+      setActMsg(status === "مفعّل" ? `✓ تم تفعيل ${username}` : `تم تعليق ${username}`);
+    } else setActMsg("تعذّر التنفيذ");
+    setTimeout(() => setActMsg(""), 3000);
+  };
+  const pendingAccounts = accounts.filter((a) => String(a.status) !== "مفعّل");
   const [apps, setApps] = useState(COACH_APPS);
   const [cForm, setCForm] = useState({ code: "", kind: "percent", val: 10, max: 100 });
   const [autoRules, setAutoRules] = useState([
@@ -2346,7 +2407,7 @@ function AdminPanel({ onBack, coupons, setCoupons }) {
   };
 
   const tabs = [
-    { id: "overview", l: "نظرة عامة", ic: TrendingUp }, { id: "subs", l: "المشتركون", ic: Users },
+    { id: "overview", l: "نظرة عامة", ic: TrendingUp }, { id: "activate", l: "طلبات التفعيل", ic: UserPlus }, { id: "subs", l: "المشتركون", ic: Users },
     { id: "coupons", l: "الكوبونات", ic: Ticket }, { id: "coaches", l: "المدربون", ic: Award },
     { id: "affiliate", l: "الإحالات", ic: Gift }, { id: "auto", l: "الأتمتة", ic: Bot },
   ];
@@ -2401,6 +2462,54 @@ function AdminPanel({ onBack, coupons, setCoupons }) {
               </div>
             </div>
           </>
+        )}
+
+        {tab === "activate" && (
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+              <h3 className="font-black flex items-center gap-2"><UserPlus size={18} className="text-amber-300" /> طلبات التفعيل — بانتظار الدفع</h3>
+              {actMsg && <span className="text-xs font-bold text-emerald-400">{actMsg}</span>}
+            </div>
+            <p className="text-[11px] text-zinc-500 mb-4">بعد استلام الدفع من المشترك عبر واتساب، اضغط "تفعيل" ليتمكن من تسجيل الدخول لحسابه.</p>
+            {!site.connected ? (
+              <p className="text-sm text-zinc-500">يظهر هنا المسجّلون الجدد بعد ربط الموقع بجدول جوجل ونشره.</p>
+            ) : pendingAccounts.length === 0 ? (
+              <p className="text-sm text-zinc-500">لا طلبات معلّقة حالياً 🎉</p>
+            ) : (
+              <div className="space-y-2">
+                {pendingAccounts.map((a) => (
+                  <div key={a.username} className="flex items-center justify-between bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 gap-3 flex-wrap">
+                    <div>
+                      <p className="font-bold text-sm">{a.name} <span className="text-zinc-500 font-normal">· @{a.username}</span></p>
+                      <p className="text-xs text-zinc-500">{a.plan} · {a.amount}€ {a.refCode ? `· كود: ${a.refCode}` : ""}</p>
+                    </div>
+                    <button onClick={() => activateUser(a.username, "مفعّل")}
+                      className="text-xs font-black bg-emerald-500 text-zinc-950 px-4 py-2 rounded-lg hover:bg-emerald-400 transition-colors">
+                      ✓ تفعيل الحساب
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* الحسابات المفعّلة */}
+            {accounts.filter((a) => String(a.status) === "مفعّل").length > 0 && (
+              <div className="mt-6">
+                <h4 className="font-bold text-sm mb-2 text-zinc-400">الحسابات المفعّلة</h4>
+                <div className="space-y-2">
+                  {accounts.filter((a) => String(a.status) === "مفعّل").map((a) => (
+                    <div key={a.username} className="flex items-center justify-between bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 gap-3 flex-wrap">
+                      <p className="text-sm"><span className="font-bold">{a.name}</span> <span className="text-zinc-500">· @{a.username}</span></p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-1 rounded-full">مفعّل ✓</span>
+                        <button onClick={() => activateUser(a.username, "معلّق")}
+                          className="text-[10px] font-bold text-zinc-500 hover:text-rose-400 transition-colors">تعليق</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         {tab === "subs" && (
@@ -2755,7 +2864,16 @@ export default function App() {
         ? <AdminPanel onBack={() => { setView("landing"); setAdminUnlocked(false); }} coupons={coupons} setCoupons={setCoupons} />
         : <AdminGate onBack={() => setView("landing")} onUnlock={() => setAdminUnlocked(true)} />)}
       {view === "library" && <FreeLibrary onBack={() => setView("landing")} onSubscribe={() => setView("onboarding")} onLogin={() => setView("login")} />}
-      {view === "login" && <Login onBack={() => setView("landing")} onLogin={() => setView(profile && plan ? "dashboard" : "onboarding")} />}
+      {view === "login" && <Login onBack={() => setView("landing")} onLogin={(acc) => {
+        // مشترك مُفعّل سجّل دخوله: ادخله للوحة التحكم ببياناته
+        if (acc && acc.name) {
+          setProfile((prev) => prev || { name: acc.name, age: 25, weight: 75, height: 175, days: 4, goal: acc.goal || "muscle", equipment: ["دمبل", "وزن الجسم"], injuries: [], weakPoints: [] });
+          setPlan({ tier: acc.tier || "basic", name: acc.plan || "مشترك", tierLabel: acc.tier === "premium" ? "اشتراك Premium" : "الاشتراك الأساسي" });
+          setView("dashboard");
+        } else {
+          setView(profile && plan ? "dashboard" : "onboarding");
+        }
+      }} />}
       {view === "onboarding" && <Onboarding onDone={(p) => { setProfile(p); setView("plans"); }} onBack={() => setView("landing")} />}
       {view === "plans" && <Plans coupons={coupons} currentPlan={plan} onSubscribed={(pl) => { setPlan(pl); setView("dashboard"); }} onBack={() => setView(plan ? "dashboard" : "onboarding")} />}
       {view === "dashboard" && profile && <Dashboard profile={profile} plan={plan} onUpgrade={() => setView("plans")} />}
