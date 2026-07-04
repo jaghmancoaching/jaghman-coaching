@@ -6,7 +6,7 @@
  */
 
 // ⚠️ الصق هنا رابط الـ Web App الذي حصلت عليه من Apps Script (خطوة النشر)
-export const SHEET_API_URL = "https://script.google.com/macros/s/AKfycbxAsS7Uz-OH7iQE3IlB6iRmgQ1dmsX0XT5F7tqbJbYBN2RBxqrQMBhSsj6YFhOsKcZ6mg/exec";
+export const SHEET_API_URL = "https://script.google.com/macros/s/AKfycbxAsS7Uz-OH7iQE3IIB6iRmgQ1dmsX0XT5F7tqbJbYBN2RBxqrQMBhSsj6YFhOsKcZ6mg/exec";
 
 // كلمة السر نفسها الموجودة في Apps Script (لقراءة قائمة المشتركين)
 export const ADMIN_SECRET = "jaghman2026";
@@ -70,8 +70,8 @@ export async function loadSubscribers() {
   try {
     const res = await fetch(`${SHEET_API_URL}?action=subscribers&secret=${encodeURIComponent(ADMIN_SECRET)}`);
     const data = await res.json();
-    return data.ok ? data.subscribers : [];
-  } catch { return []; }
+    return data.ok ? { subscribers: data.subscribers || [], accounts: data.accounts || [] } : { subscribers: [], accounts: [] };
+  } catch { return { subscribers: [], accounts: [] }; }
 }
 
 /** يسجّل مشتركاً جديداً في الجدول بعد نجاح الدفع */
@@ -99,4 +99,31 @@ export async function saveCoachApplication(payload) {
     await fetch(SHEET_API_URL, { method: "POST", body: JSON.stringify({ action: "coachApplication", ...payload }) });
     return true;
   } catch { return false; }
+}
+
+/** تسجيل حساب جديد (بحالة بانتظار التفعيل) */
+export async function signupAccount(payload) {
+  try {
+    const res = await fetch(SHEET_API_URL, { method: "POST", body: JSON.stringify({ action: "signup", ...payload }) });
+    return await res.json();
+  } catch { return { ok: false, error: "network" }; }
+}
+
+/** تسجيل دخول المستخدم */
+export async function loginAccount(username, password) {
+  try {
+    const res = await fetch(`${SHEET_API_URL}?action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`);
+    return await res.json();
+  } catch { return { ok: false, error: "network" }; }
+}
+
+/** تفعيل حساب من لوحة الإدارة */
+export async function activateAccount(username, status) {
+  try {
+    const res = await fetch(SHEET_API_URL, {
+      method: "POST",
+      body: JSON.stringify({ action: "activate", username, status: status || "مفعّل", secret: ADMIN_SECRET }),
+    });
+    return await res.json();
+  } catch { return { ok: false, error: "network" }; }
 }
