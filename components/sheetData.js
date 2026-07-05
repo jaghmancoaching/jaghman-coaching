@@ -6,8 +6,7 @@
  */
 
 // ⚠️ الصق هنا رابط الـ Web App الذي حصلت عليه من Apps Script (خطوة النشر)
-export const SHEET_API_URL = "https://script.google.com/macros/s/AKfycbxAsS7Uz-OH7iQE3IIB6iRmgQ1dmsX0XT5F7tqbJbYBN2RBxqrQMBhSsj6YFhOsKcZ6mg/exec";
-
+export const SHEET_API_URL = "https://script.google.com/macros/s/AKfycbxAsS7Uz-OH7iQE3IlB6iRmgQ1dmsX0XT5F7tqbJbYBN2RBxqrQMBhSsj6YFhOsKcZ6mg/exec";
 // كلمة السر نفسها الموجودة في Apps Script (لقراءة قائمة المشتركين)
 export const ADMIN_SECRET = "jaghman2026";
 
@@ -74,56 +73,50 @@ export async function loadSubscribers() {
   } catch { return { subscribers: [], accounts: [] }; }
 }
 
+/* كل عمليات الكتابة تُرسَل عبر GET (URL parameters) لتتجاوز قيود CORS
+   التي يفرضها المتصفح على POST نحو Google Apps Script من دومين خارجي. */
+function toQuery(obj) {
+  return Object.keys(obj)
+    .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(obj[k] == null ? "" : obj[k])}`)
+    .join("&");
+}
+async function writeAction(payload) {
+  const res = await fetch(`${SHEET_API_URL}?${toQuery(payload)}`);
+  return await res.json();
+}
+
 /** يسجّل مشتركاً جديداً في الجدول بعد نجاح الدفع */
 export async function saveSubscriber(payload) {
-  try {
-    await fetch(SHEET_API_URL, {
-      method: "POST",
-      body: JSON.stringify({ action: "addSubscriber", ...payload }),
-    });
-    return true;
-  } catch { return false; }
+  try { await writeAction({ action: "addSubscriber", ...payload }); return true; }
+  catch { return false; }
 }
 
 /** يرسل تقييم مدرب */
 export async function saveReview(payload) {
-  try {
-    await fetch(SHEET_API_URL, { method: "POST", body: JSON.stringify({ action: "addReview", ...payload }) });
-    return true;
-  } catch { return false; }
+  try { await writeAction({ action: "addReview", ...payload }); return true; }
+  catch { return false; }
 }
 
 /** يرسل طلب انضمام مدرب */
 export async function saveCoachApplication(payload) {
-  try {
-    await fetch(SHEET_API_URL, { method: "POST", body: JSON.stringify({ action: "coachApplication", ...payload }) });
-    return true;
-  } catch { return false; }
+  try { await writeAction({ action: "coachApplication", ...payload }); return true; }
+  catch { return false; }
 }
 
 /** تسجيل حساب جديد (بحالة بانتظار التفعيل) */
 export async function signupAccount(payload) {
-  try {
-    const res = await fetch(SHEET_API_URL, { method: "POST", body: JSON.stringify({ action: "signup", ...payload }) });
-    return await res.json();
-  } catch { return { ok: false, error: "network" }; }
+  try { return await writeAction({ action: "signup", ...payload }); }
+  catch { return { ok: false, error: "network" }; }
 }
 
 /** تسجيل دخول المستخدم */
 export async function loginAccount(username, password) {
-  try {
-    const res = await fetch(`${SHEET_API_URL}?action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`);
-    return await res.json();
-  } catch { return { ok: false, error: "network" }; }
+  try { return await writeAction({ action: "login", username, password }); }
+  catch { return { ok: false, error: "network" }; }
 }
 
 /** تفعيل حساب من لوحة الإدارة */
 export async function activateAccount(username, status) {
-  try {
-    const res = await fetch(SHEET_API_URL, {
-      method: "POST",
-      body: JSON.stringify({ action: "activate", username, status: status || "مفعّل", secret: ADMIN_SECRET }),
-    });
-    return await res.json();
-  } catch { return { ok: false, error: "network" }; }
+  try { return await writeAction({ action: "activate", username, status: status || "مفعّل", secret: ADMIN_SECRET }); }
+  catch { return { ok: false, error: "network" }; }
 }
