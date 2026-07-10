@@ -1376,18 +1376,23 @@ function MuscleMap({ group }) {
    ═══════════════════════════════════════════════════════════════ */
 
 function ExerciseModal({ ex, onClose, onSwap, equipment }) {
-  const [paused, setPaused] = useState(false);
-  const [speed, setSpeed] = useState(1);
-  const [vtab, setVtab] = useState("jeff");
+  const [vtab, setVtab] = useState("anatomy");
   const site = useSite();
-  // أولوية فيديو جدول جوجل، ثم القائمة المدمجة
-  const anatomyId = ex ? ((site.anatomy && site.anatomy[ex.name]) || ANATOMY_YT[ex.name]) : null;
-  useEffect(() => { setPaused(false); setSpeed(1); setVtab(anatomyId ? "anatomy" : "jeff"); }, [ex]);
+  useEffect(() => { setVtab("anatomy"); }, [ex]);
   if (!ex) return null;
-  const pattern = PATTERN_OF[ex.name] || GROUP_PATTERN[ex.group] || "pressH";
+  const en = EN_OF[ex.name] || ex.name;
+  /* الفيديو يعمل مباشرة داخل الموقع دائماً:
+     - إن حُدّد معرّف فيديو (من جدول جوجل عبر anatomy/videos، أو من القائمة المدمجة) يُشغَّل هو.
+     - وإلا يشغّل مشغّل يوتيوب الرسمي نتيجة البحث فوراً داخل الصفحة (listType=search) —
+       بلا مغادرة الموقع وبلا بحث يدوي من المستخدم. */
+  const anatomyId = (site.anatomy && site.anatomy[ex.name]) || ANATOMY_YT[ex.name];
   const ytId = (site.videos && site.videos[ex.name]) || JEFF_YT[ex.name];
-  const chSearch = `${JEFF_CH}/search?query=${encodeURIComponent("how to " + (EN_OF[ex.name] || ex.name))}`;
-  const anSearch = `${ANATOMY_CH}/search?query=${encodeURIComponent((EN_OF[ex.name] || ex.name) + " anatomy")}`;
+  const anatomySrc = anatomyId
+    ? `https://www.youtube.com/embed/${anatomyId}?rel=0&modestbranding=1`
+    : `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent("Muscle and Motion " + en + " anatomy 3d")}&rel=0&modestbranding=1`;
+  const realSrc = ytId
+    ? `https://www.youtube.com/embed/${ytId}?rel=0&modestbranding=1`
+    : `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent("Jeff Nippard how to " + en)}&rel=0&modestbranding=1`;
   return (
     <Modal open={!!ex} onClose={onClose} wide>
       <div className="p-7">
@@ -1397,135 +1402,34 @@ function ExerciseModal({ ex, onClose, onSwap, equipment }) {
         </div>
         <h3 className="font-black text-2xl mb-4">{ex.name}</h3>
 
-        {/* مشغّل الفيديو: شرح Jeff Nippard (الافتراضي) أو العرض الحركي */}
-        <div className="grid md:grid-cols-3 gap-4 mb-3">
+        {/* المشغّل المباشر: التشريح العضلي 3D يعمل فوراً أمام المستخدم */}
+        <div className="grid md:grid-cols-3 gap-4 mb-5">
           <div className="md:col-span-2 flex flex-col">
-            {/* تبويبات المشغّل */}
-            <div className="flex gap-1.5 mb-2">
-              <button onClick={() => setVtab("anatomy")}
-                className={`flex-1 text-xs font-black py-2 rounded-xl border transition-colors ${vtab === "anatomy" ? "bg-amber-400 border-amber-400 text-zinc-950" : "border-zinc-700 text-zinc-400 hover:border-amber-400/50"}`}>
-                🧬 عضلات 3D
-              </button>
-              <button onClick={() => setVtab("jeff")}
-                className={`flex-1 text-xs font-black py-2 rounded-xl border transition-colors ${vtab === "jeff" ? "bg-amber-400 border-amber-400 text-zinc-950" : "border-zinc-700 text-zinc-400 hover:border-amber-400/50"}`}>
-                🎬 شرح الأداء
-              </button>
-              <button onClick={() => setVtab("motion")}
-                className={`flex-1 text-xs font-black py-2 rounded-xl border transition-colors ${vtab === "motion" ? "bg-amber-400 border-amber-400 text-zinc-950" : "border-zinc-700 text-zinc-400 hover:border-amber-400/50"}`}>
-                🤖 عرض تخطيطي
-              </button>
+            <div className="bg-black border border-zinc-700 rounded-2xl overflow-hidden" style={{ aspectRatio: "16 / 9" }}>
+              <iframe
+                key={vtab + "-" + ex.name}
+                src={vtab === "anatomy" ? anatomySrc : realSrc}
+                title={vtab === "anatomy" ? `التشريح العضلي 3D — ${ex.name}` : `الأداء الواقعي — ${ex.name}`}
+                style={{ width: "100%", height: "100%", border: 0 }}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
             </div>
-
-            {vtab === "anatomy" && (
-              <div className="flex-1 bg-zinc-950 border border-zinc-700 rounded-2xl overflow-hidden flex flex-col">
-                {anatomyId ? (
-                  <>
-                    <div className="flex-1 flex justify-center bg-black py-2">
-                      <iframe
-                        src={`https://www.youtube.com/embed/${anatomyId}?rel=0&modestbranding=1`}
-                        title={`التشريح العضلي 3D — ${ex.name}`}
-                        style={{ width: "100%", aspectRatio: "16 / 9", maxHeight: "min(52vh, 420px)", border: 0 }}
-                        className="rounded-xl"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
-                    </div>
-                    <div className="flex items-center justify-between gap-2 px-3 py-2 bg-zinc-900/95 border-t border-zinc-800">
-                      <p className="text-[10px] text-zinc-500">تشريح 3D: قناة Muscle and Motion — عبر مشغّل يوتيوب الرسمي</p>
-                      <a href={anSearch} target="_blank" rel="noreferrer"
-                        className="text-[10px] font-black text-amber-300 hover:text-amber-200 whitespace-nowrap">المزيد على قناتهم ↗</a>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center text-center p-6 gap-3" style={{ minHeight: 280 }}>
-                    <div className="rounded-full p-4" style={{ background: "linear-gradient(135deg, rgba(239,68,68,0.18), rgba(212,175,110,0.12))" }}>
-                      <Target size={34} className="text-red-400" />
-                    </div>
-                    <p className="font-bold text-sm">شاهد العضلة وأليافها تنقبض — تشريح 3D احترافي</p>
-                    <p className="text-xs text-zinc-500 leading-relaxed max-w-xs">
-                      الزر يفتح البحث <b className="text-zinc-300">داخل قناة Muscle and Motion الرسمية حصراً</b> عن
-                      تشريح «{EN_OF[ex.name] || ex.name}» — مجسّم ثلاثي الأبعاد يُظهر عمل العضلة أثناء الحركة.
-                    </p>
-                    <a href={anSearch} target="_blank" rel="noreferrer"
-                      className="bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black text-sm px-6 py-3 rounded-xl transition-all hover:scale-105">
-                      🧬 شاهد التشريح ثلاثي الأبعاد ↗
-                    </a>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {vtab === "jeff" && (
-              <div className="flex-1 bg-zinc-950 border border-zinc-700 rounded-2xl overflow-hidden flex flex-col">
-                {ytId ? (
-                  <>
-                    {/* شورت مضمّن عمودياً عبر مشغّل يوتيوب الرسمي */}
-                    <div className="flex-1 flex justify-center bg-black py-2">
-                      <iframe
-                        src={`https://www.youtube.com/embed/${ytId}?rel=0&modestbranding=1`}
-                        title={`شرح ${ex.name} — Jeff Nippard`}
-                        style={{ aspectRatio: "9 / 16", height: "min(52vh, 420px)", border: 0 }}
-                        className="rounded-xl"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
-                    </div>
-                    <div className="flex items-center justify-between gap-2 px-3 py-2 bg-zinc-900/95 border-t border-zinc-800">
-                      <p className="text-[10px] text-zinc-500">المصدر: قناة Jeff Nippard — عبر مشغّل يوتيوب الرسمي</p>
-                      <a href={chSearch} target="_blank" rel="noreferrer"
-                        className="text-[10px] font-black text-amber-300 hover:text-amber-200 whitespace-nowrap">المزيد على قناته ↗</a>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center text-center p-6 gap-3" style={{ minHeight: 280 }}>
-                    <div className="rounded-full p-4" style={{ background: "linear-gradient(135deg, rgba(212,175,110,0.22), rgba(168,132,63,0.1))" }}>
-                      <PlayCircle size={34} className="text-amber-300" />
-                    </div>
-                    <p className="font-bold text-sm">شرح هذا التمرين من قناة Jeff Nippard</p>
-                    <p className="text-xs text-zinc-500 leading-relaxed max-w-xs">
-                      الزر يفتح البحث <b className="text-zinc-300">داخل قناته الرسمية حصراً</b> عن
-                      «{EN_OF[ex.name] || ex.name}» — اختر المقطع القصير (Short) الأنسب.
-                    </p>
-                    <a href={chSearch} target="_blank" rel="noreferrer"
-                      className="bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black text-sm px-6 py-3 rounded-xl transition-all hover:scale-105">
-                      🎬 شاهد على قناة Jeff Nippard ↗
-                    </a>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {vtab === "motion" && (
-            <div className="flex-1 relative bg-zinc-950 border border-zinc-700 rounded-2xl overflow-hidden flex flex-col">
-            {/* شبكة الخلفية */}
-            <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: "linear-gradient(rgba(51,65,85,.35) 1px, transparent 1px), linear-gradient(90deg, rgba(51,65,85,.35) 1px, transparent 1px)", backgroundSize: "20px 20px" }} />
-            <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5 bg-zinc-900/90 border border-amber-400/40 text-amber-300 text-[10px] font-black px-2.5 py-1 rounded-full">
-              <Zap size={11} /> عرض حركي توضيحي احترافي
-            </div>
-            <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-zinc-900/90 border border-zinc-700 text-zinc-300 text-[10px] font-bold px-2.5 py-1 rounded-full">
-              <span className="w-2 h-2 rounded-full bg-red-500 aiHot inline-block" /> العضلة المستهدفة
-            </div>
-            <div className="flex-1 flex items-center justify-center pt-6">
-              <ExerciseAnimation pattern={pattern} paused={paused} speed={speed} />
-            </div>
-            {/* شريط التحكم */}
-            <div className="relative z-10 flex items-center gap-2 px-3 py-2 bg-zinc-900/95 border-t border-zinc-800">
-              <button onClick={() => setPaused(!paused)} aria-label={paused ? "تشغيل" : "إيقاف مؤقت"}
-                className="bg-amber-400 hover:bg-amber-300 text-zinc-950 rounded-lg p-1.5 transition-colors">
-                {paused ? <PlayCircle size={16} /> : <Pause size={16} />}
-              </button>
-              <div className="flex-1 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
-                <div className="h-full bg-amber-400 rounded-full" style={{ animation: `aiProg ${2.8 / speed}s linear infinite`, animationPlayState: paused ? "paused" : "running" }} />
-              </div>
-              {[0.5, 1, 1.5].map((s) => (
-                <button key={s} onClick={() => setSpeed(s)}
-                  className={`text-[10px] font-black px-2 py-1 rounded-md border transition-colors ${speed === s ? "bg-amber-400 border-amber-400 text-zinc-950" : "border-zinc-700 text-zinc-400 hover:border-amber-400/50"}`} dir="ltr">
-                  {s}x
+            <div className="flex items-center justify-between gap-2 mt-2 flex-wrap">
+              <div className="flex gap-1.5">
+                <button onClick={() => setVtab("anatomy")}
+                  className={`text-[11px] font-black px-3 py-1.5 rounded-lg border transition-colors ${vtab === "anatomy" ? "bg-amber-400 border-amber-400 text-zinc-950" : "border-zinc-700 text-zinc-400 hover:border-amber-400/50"}`}>
+                  🧬 تشريح عضلي 3D
                 </button>
-              ))}
+                <button onClick={() => setVtab("real")}
+                  className={`text-[11px] font-black px-3 py-1.5 rounded-lg border transition-colors ${vtab === "real" ? "bg-amber-400 border-amber-400 text-zinc-950" : "border-zinc-700 text-zinc-400 hover:border-amber-400/50"}`}>
+                  🎬 أداء واقعي
+                </button>
+              </div>
+              <p className="text-[10px] text-zinc-600">
+                {vtab === "anatomy" ? "المصدر: Muscle and Motion — عبر مشغّل يوتيوب الرسمي" : "المصدر: Jeff Nippard — عبر مشغّل يوتيوب الرسمي"}
+              </p>
             </div>
-            </div>
-            )}
           </div>
           {/* الخريطة العضلية */}
           <div className="bg-zinc-950 border border-zinc-700 rounded-2xl p-3 flex flex-col justify-center">
@@ -1538,10 +1442,6 @@ function ExerciseModal({ ex, onClose, onSwap, equipment }) {
             </p>
           </div>
         </div>
-        <a href={JEFF_CH} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-amber-300 mb-5 transition-colors">
-          <PlayCircle size={14} /> تصفح قناة Jeff Nippard كاملة ↗
-        </a>
-
         <div className="grid md:grid-cols-2 gap-5">
           <div>
             <h4 className="font-bold text-emerald-400 mb-2 flex items-center gap-1.5 text-sm"><Check size={15} /> خطوات الأداء الصحيح</h4>
