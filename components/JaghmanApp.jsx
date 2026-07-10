@@ -1008,6 +1008,15 @@ const JEFF_CH = "https://www.youtube.com/@JeffNippard";
 const JEFF_YT = {
   "ضغط بار مستوي": "hWbUlkb5Ms4", // How To Bench Press With Perfect Technique (5 Steps)
 };
+
+/* ─── التشريح العضلي 3D — قناة Muscle and Motion الرسمية ───
+   رسوم ثلاثية الأبعاد احترافية تُظهر انقباض الألياف العضلية أثناء التمرين.
+   ANATOMY_YT: لإضافة تمرين، افتح فيديو التشريح على قناتهم وانسخ معرّفه هنا
+   (ما بعد watch?v= أو shorts/). أي تمرين بلا معرّف يعرض زراً يبحث داخل قناتهم حصراً. */
+const ANATOMY_CH = "https://www.youtube.com/channel/UCo0du-IzWuYaVf9QTg10nAQ"; // Muscle and Motion
+const ANATOMY_YT = {
+  // مثال: "سكوات بار خلفي": "معرف-الفيديو",
+};
 const EN_OF = {
   "ضغط بار مستوي": "bench press", "ضغط دمبل مائل علوي": "incline dumbbell press", "تفتيح كيبل": "cable fly",
   "تجديف بار منحني": "barbell row", "سحب علوي (عقلة)": "pull up", "سحب أرضي رومانى (RDL)": "romanian deadlift",
@@ -1370,13 +1379,15 @@ function ExerciseModal({ ex, onClose, onSwap, equipment }) {
   const [paused, setPaused] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [vtab, setVtab] = useState("jeff");
-  useEffect(() => { setPaused(false); setSpeed(1); setVtab("jeff"); }, [ex]);
-  if (!ex) return null;
   const site = useSite();
-  const pattern = PATTERN_OF[ex.name] || GROUP_PATTERN[ex.group] || "pressH";
   // أولوية فيديو جدول جوجل، ثم القائمة المدمجة
+  const anatomyId = ex ? ((site.anatomy && site.anatomy[ex.name]) || ANATOMY_YT[ex.name]) : null;
+  useEffect(() => { setPaused(false); setSpeed(1); setVtab(anatomyId ? "anatomy" : "jeff"); }, [ex]);
+  if (!ex) return null;
+  const pattern = PATTERN_OF[ex.name] || GROUP_PATTERN[ex.group] || "pressH";
   const ytId = (site.videos && site.videos[ex.name]) || JEFF_YT[ex.name];
   const chSearch = `${JEFF_CH}/search?query=${encodeURIComponent("how to " + (EN_OF[ex.name] || ex.name))}`;
+  const anSearch = `${ANATOMY_CH}/search?query=${encodeURIComponent((EN_OF[ex.name] || ex.name) + " anatomy")}`;
   return (
     <Modal open={!!ex} onClose={onClose} wide>
       <div className="p-7">
@@ -1391,15 +1402,58 @@ function ExerciseModal({ ex, onClose, onSwap, equipment }) {
           <div className="md:col-span-2 flex flex-col">
             {/* تبويبات المشغّل */}
             <div className="flex gap-1.5 mb-2">
+              <button onClick={() => setVtab("anatomy")}
+                className={`flex-1 text-xs font-black py-2 rounded-xl border transition-colors ${vtab === "anatomy" ? "bg-amber-400 border-amber-400 text-zinc-950" : "border-zinc-700 text-zinc-400 hover:border-amber-400/50"}`}>
+                🧬 عضلات 3D
+              </button>
               <button onClick={() => setVtab("jeff")}
                 className={`flex-1 text-xs font-black py-2 rounded-xl border transition-colors ${vtab === "jeff" ? "bg-amber-400 border-amber-400 text-zinc-950" : "border-zinc-700 text-zinc-400 hover:border-amber-400/50"}`}>
-                🎬 شرح Jeff Nippard
+                🎬 شرح الأداء
               </button>
               <button onClick={() => setVtab("motion")}
                 className={`flex-1 text-xs font-black py-2 rounded-xl border transition-colors ${vtab === "motion" ? "bg-amber-400 border-amber-400 text-zinc-950" : "border-zinc-700 text-zinc-400 hover:border-amber-400/50"}`}>
-                🤖 العرض الحركي
+                🤖 عرض تخطيطي
               </button>
             </div>
+
+            {vtab === "anatomy" && (
+              <div className="flex-1 bg-zinc-950 border border-zinc-700 rounded-2xl overflow-hidden flex flex-col">
+                {anatomyId ? (
+                  <>
+                    <div className="flex-1 flex justify-center bg-black py-2">
+                      <iframe
+                        src={`https://www.youtube.com/embed/${anatomyId}?rel=0&modestbranding=1`}
+                        title={`التشريح العضلي 3D — ${ex.name}`}
+                        style={{ width: "100%", aspectRatio: "16 / 9", maxHeight: "min(52vh, 420px)", border: 0 }}
+                        className="rounded-xl"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-2 px-3 py-2 bg-zinc-900/95 border-t border-zinc-800">
+                      <p className="text-[10px] text-zinc-500">تشريح 3D: قناة Muscle and Motion — عبر مشغّل يوتيوب الرسمي</p>
+                      <a href={anSearch} target="_blank" rel="noreferrer"
+                        className="text-[10px] font-black text-amber-300 hover:text-amber-200 whitespace-nowrap">المزيد على قناتهم ↗</a>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center p-6 gap-3" style={{ minHeight: 280 }}>
+                    <div className="rounded-full p-4" style={{ background: "linear-gradient(135deg, rgba(239,68,68,0.18), rgba(212,175,110,0.12))" }}>
+                      <Target size={34} className="text-red-400" />
+                    </div>
+                    <p className="font-bold text-sm">شاهد العضلة وأليافها تنقبض — تشريح 3D احترافي</p>
+                    <p className="text-xs text-zinc-500 leading-relaxed max-w-xs">
+                      الزر يفتح البحث <b className="text-zinc-300">داخل قناة Muscle and Motion الرسمية حصراً</b> عن
+                      تشريح «{EN_OF[ex.name] || ex.name}» — مجسّم ثلاثي الأبعاد يُظهر عمل العضلة أثناء الحركة.
+                    </p>
+                    <a href={anSearch} target="_blank" rel="noreferrer"
+                      className="bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black text-sm px-6 py-3 rounded-xl transition-all hover:scale-105">
+                      🧬 شاهد التشريح ثلاثي الأبعاد ↗
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
 
             {vtab === "jeff" && (
               <div className="flex-1 bg-zinc-950 border border-zinc-700 rounded-2xl overflow-hidden flex flex-col">
