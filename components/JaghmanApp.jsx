@@ -10,11 +10,49 @@ import {
 import { BarChart, Bar } from "recharts";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
+import * as sheet from "./sheetData";
 import { loadSiteData, loadSubscribers, saveSubscriber, saveReview, saveCoachApplication, signupAccount, loginAccount, activateAccount } from "./sheetData";
+// دوال اختيارية — تعمل تلقائياً فور إضافتها إلى sheetData.js (راجع ملف "دليل-تفعيل-Google-والسعرات")
+const googleLogin = sheet.googleLogin || (async () => ({ ok: false, error: "demo" }));
+const logCalories = sheet.logCalories || (async () => ({ ok: true, local: true }));
+const getCalories = sheet.getCalories || (async () => ({ ok: false, local: true, items: [] }));
+const GOOGLE_CLIENT_ID = sheet.GOOGLE_CLIENT_ID || ""; // يُفعّل زر جوجل عند وضع المعرّف في sheetData.js
 
 // سياق يوفّر بيانات الجدول لكل مكونات الموقع
 const SiteData = React.createContext({ connected: false });
 const useSite = () => React.useContext(SiteData);
+
+// زر "المتابعة بحساب Google" — يظهر فقط عند ضبط GOOGLE_CLIENT_ID
+function GoogleButton({ onCred }) {
+  const ref = React.useRef(null);
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || !ref.current) return;
+    const init = () => {
+      try {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: (res) => {
+            try {
+              const b64 = res.credential.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+              const payload = JSON.parse(decodeURIComponent(escape(atob(b64))));
+              onCred({ email: payload.email, name: payload.name || payload.email.split("@")[0] });
+            } catch {}
+          },
+        });
+        window.google.accounts.id.renderButton(ref.current, { theme: "outline", size: "large", width: 280, locale: "ar" });
+      } catch {}
+    };
+    if (window.google?.accounts?.id) init();
+    else {
+      const sc = document.createElement("script");
+      sc.src = "https://accounts.google.com/gsi/client";
+      sc.async = true; sc.onload = init;
+      document.body.appendChild(sc);
+    }
+  }, []);
+  if (!GOOGLE_CLIENT_ID) return null;
+  return <div ref={ref} className="flex justify-center" />;
+}
 
 
 /* ═══════════════════════════════════════════════════════════════
@@ -22,6 +60,12 @@ const useSite = () => React.useContext(SiteData);
    ═══════════════════════════════════════════════════════════════ */
 
 const COACH_WHATSAPP = "31645995782";
+
+// أسماء الأيام بالعربية (اليوم الأول، الثاني...) بدل الأرقام
+const DAY_NAMES = ["الأول", "الثاني", "الثالث", "الرابع", "الخامس", "السادس", "السابع"];
+const dayLabel = (i) => `اليوم ${DAY_NAMES[i] || (i + 1)}`;
+const WEEK_NAMES = ["الأول", "الثاني", "الثالث", "الرابع", "الخامس", "السادس", "السابع", "الثامن", "التاسع", "العاشر", "الحادي عشر", "الثاني عشر"];
+const weekLabel = (i) => `الأسبوع ${WEEK_NAMES[i] || (i + 1)}`;
 
 // دورة التدرج في الحمل (Progressive Overload Mesocycle)
 const OVERLOAD_WEEKS = [
@@ -31,6 +75,7 @@ const OVERLOAD_WEEKS = [
   { id: 4, label: "استشفاء", sets: 2, reps: "10–12", intensity: "−30% وزن", note: "أسبوع تخفيف (Deload) لتجديد الجهاز العصبي والمفاصل." },
 ];
 
+const DAY_ORD = ["الأول", "الثاني", "الثالث", "الرابع", "الخامس", "السادس", "السابع"];
 const EQUIPMENT = ["بار", "دمبل", "كيبل", "آلة", "وزن الجسم", "أشرطة مقاومة"];
 const INJURIES = ["الكتف", "الركبة", "أسفل الظهر", "الرسغ"];
 const GOALS = [
@@ -140,29 +185,48 @@ const FREE_PROGRAMS = [
 ];
 const buildFreeProgram = (days) => generateProgram({ days, equipment: EQUIPMENT, injuries: [], weakPoints: [] });
 
-// قاعدة الوجبات — 3 بدائل لكل وجبة بنفس التوزيع الغذائي تقريباً
+// قاعدة الوجبات — 3 بدائل لكل وجبة، بكميات دقيقة تُحجَّم تلقائياً على سعرات كل مشترك
+// kcal / p / c / f = قيم الخيار عند الكميات الأساسية، وتُعاد معايرة الكميات المعروضة حسب هدفك اليومي
 const MEALS = [
   { id: "bf", title: "الفطور", share: 0.25, options: [
-    { name: "شوفان بالحليب + موز + ملعقة زبدة فول سوداني", tag: "كربوهيدرات معقدة · طاقة مستدامة" },
-    { name: "3 بيضات أومليت + توست أسمر + نصف أفوكادو", tag: "بروتين عالٍ · دهون صحية" },
-    { name: "زبادي يوناني + جرانولا + عسل وفواكه", tag: "سريع التحضير · بروتين جيد" },
+    { tag: "كربوهيدرات معقدة · طاقة مستدامة", kcal: 715, p: 26, c: 99, f: 25, items: [
+      { n: "شوفان", g: 80 }, { n: "حليب", g: 250, u: "مل" }, { n: "موز", g: 1, u: "حبة" }, { n: "زبدة فول سوداني", g: 30 }] },
+    { tag: "بروتين عالٍ · دهون صحية", kcal: 545, p: 25, c: 36, f: 33, items: [
+      { n: "بيض (أومليت)", g: 3, u: "حبة" }, { n: "توست أسمر", g: 2, u: "شريحة" }, { n: "أفوكادو", g: 70 }] },
+    { tag: "سريع التحضير · بروتين جيد", kcal: 430, p: 26, c: 62, f: 8, items: [
+      { n: "زبادي يوناني", g: 200 }, { n: "جرانولا", g: 40 }, { n: "عسل", g: 20 }, { n: "فواكه موسمية", g: 80 }] },
   ]},
   { id: "ln", title: "الغداء", share: 0.35, options: [
-    { name: "صدر دجاج مشوي + أرز بسمتي + سلطة خضراء", tag: "الوجبة الكلاسيكية للرياضيين" },
-    { name: "سلمون مشوي + بطاطا حلوة + خضار سوتيه", tag: "أوميغا 3 · مضادات التهاب" },
-    { name: "لحم بقري قليل الدهن + مكرونة قمح كامل + خضار", tag: "حديد وزنك · كربوهيدرات جيدة" },
+    { tag: "الوجبة الكلاسيكية للرياضيين", kcal: 610, p: 51, c: 60, f: 17, items: [
+      { n: "صدر دجاج مشوي", g: 150 }, { n: "أرز بسمتي مطبوخ", g: 200 }, { n: "سلطة خضراء", g: 150 }, { n: "زيت زيتون", g: 10 }] },
+    { tag: "أوميغا 3 · مضادات التهاب", kcal: 545, p: 35, c: 45, f: 23, items: [
+      { n: "سلمون مشوي", g: 150 }, { n: "بطاطا حلوة", g: 200 }, { n: "خضار سوتيه", g: 150 }] },
+    { tag: "حديد وزنك · كربوهيدرات جيدة", kcal: 585, p: 49, c: 62, f: 13, items: [
+      { n: "لحم بقري قليل الدهن", g: 150 }, { n: "مكرونة قمح كامل (وزن جاف)", g: 80 }, { n: "خضار مشوية", g: 150 }] },
   ]},
   { id: "sn", title: "سناك ما قبل التمرين", share: 0.15, options: [
-    { name: "موز + حفنة مكسرات نيئة", tag: "طاقة سريعة قبل الجلسة" },
-    { name: "3 تمرات + قهوة + كوب زبادي", tag: "كافيين + سكريات سريعة" },
-    { name: "توست بزبدة الفول السوداني + عسل", tag: "خفيف وسريع الهضم" },
+    { tag: "طاقة سريعة قبل الجلسة", kcal: 290, p: 6, c: 34, f: 16, items: [
+      { n: "موز", g: 1, u: "حبة" }, { n: "مكسرات نيئة", g: 30 }] },
+    { tag: "كافيين + سكريات سريعة", kcal: 265, p: 11, c: 50, f: 2, items: [
+      { n: "تمر", g: 3, u: "حبة" }, { n: "زبادي", g: 200 }, { n: "قهوة", g: 1, u: "فنجان" }] },
+    { tag: "خفيف وسريع الهضم", kcal: 345, p: 11, c: 46, f: 13, items: [
+      { n: "توست أسمر", g: 2, u: "شريحة" }, { n: "زبدة فول سوداني", g: 20 }, { n: "عسل", g: 15 }] },
   ]},
   { id: "dn", title: "العشاء", share: 0.25, options: [
-    { name: "تونة + بطاطس مسلوقة + خضار مشكلة", tag: "بروتين نظيف · شبع عالٍ" },
-    { name: "صدر دجاج + كينوا + بروكلي", tag: "استشفاء ليلي مثالي" },
-    { name: "جبن قريش + خبز أسمر + خيار وطماطم", tag: "كازين بطيء الامتصاص قبل النوم" },
+    { tag: "بروتين نظيف · شبع عالٍ", kcal: 320, p: 31, c: 44, f: 3, items: [
+      { n: "تونة مصفّاة", g: 120 }, { n: "بطاطس مسلوقة", g: 200 }, { n: "خضار مشكلة", g: 150 }] },
+    { tag: "استشفاء ليلي مثالي", kcal: 455, p: 52, c: 35, f: 10, items: [
+      { n: "صدر دجاج", g: 150 }, { n: "كينوا مطبوخة", g: 150 }, { n: "بروكلي", g: 100 }] },
+    { tag: "كازين بطيء الامتصاص قبل النوم", kcal: 360, p: 25, c: 36, f: 12, items: [
+      { n: "جبن قريش", g: 200 }, { n: "خبز أسمر", g: 2, u: "شريحة" }, { n: "خيار وطماطم", g: 150 }] },
   ]},
 ];
+// تحجيم كمية كل مكوّن حسب سعرات المشترك — الجرامات لأقرب 5جم، والحبّات لأنصاف
+const scaleAmt = (it, f) => {
+  if (it.u && it.u !== "مل") { const v = Math.max(0.5, Math.round(it.g * f * 2) / 2); return { v, u: it.u }; }
+  const v = Math.max(5, Math.round((it.g * f) / 5) * 5);
+  return { v, u: it.u || "جم" };
+};
 
 /* ─── سوق المدربين (Multi-Coach Marketplace) ─── */
 const COACHES_SEED = [
@@ -541,7 +605,9 @@ function Onboarding({ onDone, onBack }) {
         {step === 0 && (
           <div className="space-y-4">
             <h2 className="text-2xl font-black mb-2">عرّفنا على جسمك 📋</h2>
-            <p className="text-zinc-400 text-sm mb-4">هذه البيانات أساس بناء برنامجك وحساب سعراتك بدقة.</p>
+            <p className="text-zinc-400 text-sm mb-3">هذه البيانات أساس بناء برنامجك وحساب سعراتك بدقة.</p>
+            <GoogleButton onCred={(u) => setP((s) => ({ ...s, name: s.name || u.name, email: u.email }))} />
+            {GOOGLE_CLIENT_ID && <p className="text-[11px] text-zinc-600 text-center">زر Google يملأ اسمك تلقائياً — وتبقى بقية الأسئلة لتخصيص برنامجك</p>}
             <div>
               <label className="text-sm font-semibold text-zinc-300 block mb-1.5">الجنس (لحساب السعرات)</label>
               <div className="flex gap-2">
@@ -693,6 +759,7 @@ function Plans({ onSubscribed, currentPlan, onBack, coupons }) {
   const [applied, setApplied] = useState(null);
   // حالات تسجيل الحساب
   const [reg, setReg] = useState({ name: "", username: "", password: "" });
+  const [gUser, setGUser] = useState(null); // حساب Google المختار — يملأ البيانات ويغني عن كلمة المرور
   const [regLoading, setRegLoading] = useState(false);
   const [regDone, setRegDone] = useState(null);
   const [regErr, setRegErr] = useState("");
@@ -790,7 +857,7 @@ function Plans({ onSubscribed, currentPlan, onBack, coupons }) {
       )}
 
       {/* تسجيل حساب + طلب الاشتراك عبر واتساب — تحصيل يدوي آمن */}
-      <Modal open={!!selected} onClose={() => { setSelected(null); setReg({ name: "", username: "", password: "" }); setRegDone(null); }}>
+      <Modal open={!!selected} onClose={() => { setSelected(null); setReg({ name: "", username: "", password: "" }); setGUser(null); setRegDone(null); }}>
         <div className="p-7">
           {(() => {
             const finalPrice = payable(selected || { total: 0 });
@@ -804,6 +871,7 @@ function Plans({ onSubscribed, currentPlan, onBack, coupons }) {
               setRegLoading(true);
               const res = await signupAccount({
                 name: reg.name, username: reg.username, password: reg.password,
+                email: gUser?.email || "",
                 plan: t.label + " · " + selected.name, tier, goal: "",
                 amount: finalPrice, refCode: applied?.kind === "ref" ? applied.v : "",
               });
@@ -834,9 +902,28 @@ function Plans({ onSubscribed, currentPlan, onBack, coupons }) {
             return (
               <>
                 <h3 className="font-black text-xl text-center mb-1">أنشئ حسابك — {selected?.name}</h3>
-                <p className="text-zinc-400 text-sm text-center mb-5">
-                  سجّل بياناتك أولاً، ثم أكمل الدفع مع المدرب لتفعيل اشتراكك.
+                <p className="text-zinc-400 text-sm text-center mb-4">
+                  {GOOGLE_CLIENT_ID ? "أسرع طريقة: زر Google يملأ بياناتك بنقرة — ثم أكمل الدفع مع المدرب." : "سجّل بياناتك أولاً، ثم أكمل الدفع مع المدرب لتفعيل اشتراكك."}
                 </p>
+
+                {/* التسجيل بنقرة عبر Google — يملأ الاسم والبريد ويغني عن كلمة المرور */}
+                {!gUser && <GoogleButton onCred={(u) => {
+                  setGUser(u);
+                  setReg((r) => ({ name: r.name || u.name, username: u.email, password: r.password || ("g" + Math.random().toString(36).slice(2, 10)) }));
+                  setRegErr("");
+                }} />}
+                {gUser && (
+                  <p className="text-xs text-emerald-400 font-bold text-center bg-emerald-500/10 border border-emerald-500/25 rounded-xl px-3 py-2.5 mb-1">
+                    ✓ سيرتبط حسابك بـ {gUser.email} — تدخل لاحقاً بزر Google مباشرة، بلا كلمة مرور
+                  </p>
+                )}
+                {GOOGLE_CLIENT_ID && !gUser && (
+                  <div className="flex items-center gap-3 my-3">
+                    <div className="h-px bg-zinc-800 flex-1" />
+                    <span className="text-[11px] text-zinc-600 font-bold">أو سجّل يدوياً</span>
+                    <div className="h-px bg-zinc-800 flex-1" />
+                  </div>
+                )}
 
                 {/* ملخص السعر */}
                 <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-3 mb-4 text-sm">
@@ -849,11 +936,11 @@ function Plans({ onSubscribed, currentPlan, onBack, coupons }) {
                     placeholder="الاسم الكامل"
                     className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-3 placeholder-zinc-600 focus:border-amber-400 focus:outline-none" />
                   <input value={reg.username} onChange={(e) => { setReg({ ...reg, username: e.target.value.replace(/\s/g, "") }); setRegErr(""); }}
-                    placeholder="اسم المستخدم (للدخول لاحقاً)" dir="ltr"
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-3 placeholder-zinc-600 focus:border-amber-400 focus:outline-none" />
-                  <input type="password" value={reg.password} onChange={(e) => { setReg({ ...reg, password: e.target.value }); setRegErr(""); }}
+                    placeholder="اسم المستخدم (للدخول لاحقاً)" dir="ltr" readOnly={!!gUser}
+                    className={`w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-3 placeholder-zinc-600 focus:border-amber-400 focus:outline-none ${gUser ? "opacity-70" : ""}`} />
+                  {!gUser && <input type="password" value={reg.password} onChange={(e) => { setReg({ ...reg, password: e.target.value }); setRegErr(""); }}
                     placeholder="كلمة المرور (4 أحرف على الأقل)" dir="ltr"
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-3 placeholder-zinc-600 focus:border-amber-400 focus:outline-none" />
+                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-3 placeholder-zinc-600 focus:border-amber-400 focus:outline-none" />}
                 </div>
 
                 {/* كود خصم/إحالة */}
@@ -891,9 +978,15 @@ const AI_CSS = `
 @keyframes aiSlideY{0%,100%{transform:translateY(0)}50%{transform:translateY(var(--d))}}
 @keyframes aiScaleY{0%,100%{transform:scaleY(1)}50%{transform:scaleY(var(--s))}}
 @keyframes aiRot{0%,100%{transform:rotate(var(--r1,0deg))}50%{transform:rotate(var(--r2))}}
-@keyframes aiPulse{0%,100%{opacity:.35}50%{opacity:1}}
+@keyframes aiPulse{0%,100%{opacity:.3;transform:scale(.9)}50%{opacity:1;transform:scale(1.12)}}
 @keyframes aiProg{0%{width:0%}100%{width:100%}}
-.aiHot{animation:aiPulse 1.5s ease-in-out infinite;filter:drop-shadow(0 0 7px rgba(239,68,68,.9))}
+@keyframes aiGlow{0%,100%{filter:drop-shadow(0 0 4px rgba(239,68,68,.5))}50%{filter:drop-shadow(0 0 12px rgba(239,68,68,1))}}
+@keyframes aiFadeA{0%,42%{opacity:1}52%,90%{opacity:0}100%{opacity:1}}
+@keyframes aiFadeB{0%,42%{opacity:0}52%,90%{opacity:1}100%{opacity:0}}
+@keyframes aiChev{0%,100%{transform:translateY(0);opacity:.95}50%{transform:translateY(11px);opacity:.3}}
+@keyframes aiShadow{0%,100%{transform:scaleX(1);opacity:.4}50%{transform:scaleX(.78);opacity:.18}}
+.aiHot{animation:aiPulse 1.4s cubic-bezier(.45,0,.55,1) infinite;transform-box:fill-box;transform-origin:center}
+.aiHotG{animation:aiGlow 1.4s ease-in-out infinite}
 `;
 
 // ربط كل تمرين بنمط الحركة الخاص به
@@ -934,17 +1027,21 @@ function ExerciseAnimation({ pattern, paused, speed }) {
     transformOrigin: origin,
     animationName: name,
     animationDuration: `${2.8 / speed}s`,
-    animationTimingFunction: "ease-in-out",
+    animationTimingFunction: "cubic-bezier(.37,0,.63,1)",
     animationIterationCount: "infinite",
     animationPlayState: paused ? "paused" : "running",
     ...vars,
   });
-  const S = { stroke: "#d4d4d8", strokeWidth: 5, strokeLinecap: "round", fill: "none" };
-  const B = { stroke: "#d4af6e", strokeWidth: 6, strokeLinecap: "round", fill: "none" };
+  const dur = 2.8 / speed;
+  const playState = paused ? "paused" : "running";
+  const S = { stroke: "#f4f4f5", strokeWidth: 6, strokeLinecap: "round", strokeLinejoin: "round", fill: "none" };
+  const B = { stroke: "url(#aiGoldGrad)", strokeWidth: 6.5, strokeLinecap: "round", fill: "none" };
   const Red = ({ x, y, r = 11 }) => (
-    <g className="aiHot" style={{ animationPlayState: paused ? "paused" : "running" }}>
-      <circle cx={x} cy={y} r={r} fill="url(#aiRedGrad)" />
-      <circle cx={x} cy={y} r={3.5} fill="#ef4444" />
+    <g className="aiHotG" style={{ animationPlayState: paused ? "paused" : "running" }}>
+      <g className="aiHot" style={{ animationPlayState: paused ? "paused" : "running" }}>
+        <circle cx={x} cy={y} r={r} fill="url(#aiRedGrad)" />
+        <circle cx={x} cy={y} r={4} fill="#ef4444" />
+      </g>
     </g>
   );
 
@@ -1185,8 +1282,36 @@ function ExerciseAnimation({ pattern, paused, speed }) {
           <stop offset="0%" stopColor="#ef4444" stopOpacity="0.85" />
           <stop offset="100%" stopColor="#ef4444" stopOpacity="0" />
         </radialGradient>
+        <linearGradient id="aiGoldGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#ecd19a" />
+          <stop offset="55%" stopColor="#d4af6e" />
+          <stop offset="100%" stopColor="#a8843f" />
+        </linearGradient>
+        <filter id="aiSoft" x="-25%" y="-25%" width="150%" height="150%">
+          <feDropShadow dx="0" dy="1.6" stdDeviation="1.7" floodColor="#000000" floodOpacity="0.55" />
+        </filter>
       </defs>
-      {bodies[pattern] || bodies.pressH}
+
+      {/* ظل أرضي يتنفس مع الحركة — إحساس بالعمق */}
+      <ellipse cx="100" cy="141" rx="44" ry="4.5" fill="#000"
+        style={{ animation: `aiShadow ${dur}s ease-in-out infinite`, animationPlayState: playState, transformBox: "view-box", transformOrigin: "100px 141px" }} />
+
+      {/* جسم التمرين مع ظل ناعم */}
+      <g filter="url(#aiSoft)">{bodies[pattern] || bodies.pressH}</g>
+
+      {/* مؤشر اتجاه الحركة — أسهم نابضة بإيقاع التكرار */}
+      <g style={{ animation: `aiChev ${dur / 2}s ease-in-out infinite`, animationPlayState: playState, transformBox: "view-box", transformOrigin: "17px 66px" }}>
+        <path d="M10 58 l7 8 l7 -8" stroke="#d4af6e" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M10 70 l7 8 l7 -8" stroke="#d4af6e" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" opacity="0.45" />
+      </g>
+
+      {/* تسميات مرحلة الأداء — تتبادل بإيقاع التكرار نفسه */}
+      <text x="196" y="14" textAnchor="end" fontSize="9.5" fontWeight="800" fill="#34d399"
+        style={{ animation: `aiFadeA ${dur}s linear infinite`, animationPlayState: playState }}>ادفع بقوة مع الزفير ⬆</text>
+      <text x="196" y="14" textAnchor="end" fontSize="9.5" fontWeight="800" fill="#fbbf24"
+        style={{ animation: `aiFadeB ${dur}s linear infinite`, animationPlayState: playState }}>نزول بطيء متحكم ⬇</text>
+      <text x="196" y="147" textAnchor="end" fontSize="8" fontWeight="700" fill="#71717a"
+      >الإيقاع الموصى: ٢ ثانية صعود · ٣ ثوانٍ نزول</text>
     </svg>
   );
 }
@@ -1433,7 +1558,7 @@ function WorkoutPlan({ profile, program, swaps, setSwaps, dayStatus, setDayStatu
           {OVERLOAD_WEEKS.map((ow) => (
             <button key={ow.id} onClick={() => setWeek(ow.id)}
               className={`rounded-xl p-3 border-2 text-center transition-all ${week === ow.id ? (ow.id === 4 ? "border-emerald-400 bg-emerald-500/10" : "border-amber-400 bg-amber-400/10") : "border-zinc-800 bg-zinc-950 hover:border-zinc-600"}`}>
-              <p className="text-[11px] text-zinc-500">أسبوع {ow.id}</p>
+              <p className="text-[11px] text-zinc-500">{weekLabel(ow.id - 1)}</p>
               <p className={`font-black text-sm ${week === ow.id ? (ow.id === 4 ? "text-emerald-400" : "text-amber-300") : ""}`}>{ow.label}</p>
             </button>
           ))}
@@ -1451,7 +1576,7 @@ function WorkoutPlan({ profile, program, swaps, setSwaps, dayStatus, setDayStatu
         <div key={di} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-zinc-800 bg-zinc-900/80">
             <div className="flex items-center gap-3">
-              <span className="bg-amber-400/15 text-amber-300 font-black rounded-xl w-10 h-10 flex items-center justify-center">{di + 1}</span>
+              <span className="bg-amber-400/15 text-amber-300 font-black rounded-xl px-3 h-10 flex items-center justify-center text-sm whitespace-nowrap">{dayLabel(di)}</span>
               <div>
                 <h3 className="font-black">{day.name}</h3>
                 <div className="flex gap-1.5 mt-1 flex-wrap">{day.groups.map((g) => <GroupBadge key={g} g={g} />)}</div>
@@ -1527,7 +1652,7 @@ function Progress({ profile, weightLog, setWeightLog, dayStatus }) {
 
   const addWeight = () => {
     if (!newW || newW < 25) return;
-    setWeightLog([...weightLog, { week: `أسبوع ${weightLog.length + 1}`, weight: parseFloat(newW) }]);
+    setWeightLog([...weightLog, { week: weekLabel(weightLog.length - 1), weight: parseFloat(newW) }]);
     setNewW("");
   };
 
@@ -1864,7 +1989,7 @@ function FreeLibrary({ onBack, onSubscribe, onLogin }) {
             {program.map((day, di) => (
               <div key={di} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden mb-5">
                 <div className="flex items-center gap-3 px-5 py-4 border-b border-zinc-800">
-                  <span className="bg-amber-400/15 text-amber-300 font-black rounded-xl w-10 h-10 flex items-center justify-center">{di + 1}</span>
+                  <span className="bg-amber-400/15 text-amber-300 font-black rounded-xl px-3 h-10 flex items-center justify-center text-sm whitespace-nowrap">{dayLabel(di)}</span>
                   <div>
                     <h3 className="font-black">{day.name}</h3>
                     <div className="flex gap-1.5 mt-1 flex-wrap">{day.groups.map((g) => <GroupBadge key={g} g={g} />)}</div>
@@ -1926,7 +2051,7 @@ function Login({ onBack, onLogin }) {
     const res = await loginAccount(username.trim(), pass);
     setLoading(false);
     if (res.ok) {
-      onLogin({ name: res.name, plan: res.plan, tier: res.tier, goal: res.goal });
+      onLogin({ name: res.name, plan: res.plan, tier: res.tier, goal: res.goal, username: username.trim() });
     } else if (res.error === "pending") {
       setMsg({ type: "warn", text: `مرحباً ${res.name || ""} — حسابك بانتظار تأكيد الدفع. تواصل مع المدرب لتفعيله.` });
     } else if (res.error === "wrong_password") {
@@ -1940,6 +2065,22 @@ function Login({ onBack, onLogin }) {
     }
   };
 
+  // دخول بنقرة واحدة عبر حساب Google — بلا كتابة
+  const viaGoogle = async ({ email, name }) => {
+    setLoading(true); setMsg(null);
+    const res = await googleLogin(email, name);
+    setLoading(false);
+    if (res.ok) {
+      onLogin({ name: res.name || name, plan: res.plan, tier: res.tier, goal: res.goal, username: res.username || email, email });
+    } else if (res.error === "pending") {
+      setMsg({ type: "warn", text: `مرحباً ${name} — حسابك بانتظار تأكيد الدفع. تواصل مع المدرب لتفعيله.` });
+    } else if (res.error === "not_found") {
+      setMsg({ type: "warn", text: "لا يوجد اشتراك مرتبط ببريدك بعد — اختر باقة من الرئيسية وسننشئ حسابك بنقرة واحدة." });
+    } else {
+      setMsg({ type: "warn", text: "دخول Google يُفعّل بعد ضبط GOOGLE_CLIENT_ID في sheetData.js ونشر الموقع." });
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative">
       <button onClick={onBack}
@@ -1949,7 +2090,15 @@ function Login({ onBack, onLogin }) {
       <div className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
         <img src={JAGHMAN_LOGO} alt="Jaghman Coaching" className="w-48 mx-auto mb-4" />
         <h2 className="text-2xl font-black mb-1">دخول المشتركين 🔐</h2>
-        <p className="text-zinc-400 text-sm mb-6">أدخل اسم المستخدم وكلمة المرور اللذين سجّلت بهما.</p>
+        <p className="text-zinc-400 text-sm mb-5">ادخل بنقرة واحدة بحساب Google — أو باسم المستخدم وكلمة المرور.</p>
+        <GoogleButton onCred={viaGoogle} />
+        {GOOGLE_CLIENT_ID && (
+          <div className="flex items-center gap-3 my-4">
+            <div className="h-px bg-zinc-800 flex-1" />
+            <span className="text-[11px] text-zinc-600 font-bold">أو يدوياً</span>
+            <div className="h-px bg-zinc-800 flex-1" />
+          </div>
+        )}
         <div className="space-y-3">
           <input placeholder="اسم المستخدم" dir="ltr" value={username}
             onChange={(e) => { setUsername(e.target.value.replace(/\s/g, "")); setMsg(null); }}
@@ -1971,6 +2120,147 @@ function Login({ onBack, onLogin }) {
         <p className="text-[11px] text-zinc-600 mt-4 text-center">
           ليس لديك حساب؟ اختر باقة من الصفحة الرئيسية لإنشاء حسابك.
         </p>
+      </div>
+    </div>
+  );
+}
+
+/* سجلّ السعرات اليومي — يُحفظ فوراً على الجهاز ويُزامَن مع قاعدة البيانات (جدول جوجل)
+   بمجرد تسجيل الدخول من أي جهاز، يجد المشترك سجلّه كاملاً */
+const DAY_AR = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+const isoOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+function CalorieTracker({ profile, target, quickMeals }) {
+  const userKey = String(profile.username || profile.email || profile.name || "guest").trim();
+  const LS_KEY = "jg_cal_" + userKey;
+  const todayISO = isoOf(new Date());
+  const [items, setItems] = useState([]);
+  const [cloud, setCloud] = useState(false);
+  const [nm, setNm] = useState("");
+  const [kc, setKc] = useState("");
+  const [flash, setFlash] = useState("");
+
+  // تحميل: من هذا الجهاز فوراً، ثم دمج سجلّ قاعدة البيانات إن توفّر الاتصال
+  useEffect(() => {
+    let local = [];
+    try { local = JSON.parse(window.localStorage.getItem(LS_KEY) || "[]"); } catch {}
+    setItems(local);
+    getCalories(userKey).then((res) => {
+      if (res && res.ok && Array.isArray(res.items)) {
+        setCloud(true);
+        setItems((cur) => {
+          const seen = new Set(cur.map((x) => String(x.id)));
+          const merged = [...cur, ...res.items.filter((x) => x && !seen.has(String(x.id)))];
+          try { window.localStorage.setItem(LS_KEY, JSON.stringify(merged)); } catch {}
+          return merged;
+        });
+      }
+    }).catch(() => {});
+  }, [LS_KEY]);
+
+  const persist = (next) => {
+    setItems(next);
+    try { window.localStorage.setItem(LS_KEY, JSON.stringify(next)); } catch {}
+  };
+
+  const addEntry = (name, kcal) => {
+    const k = Math.round(+kcal);
+    if (!String(name).trim() || !k || k < 1) return;
+    const entry = { id: Date.now() + "-" + Math.random().toString(36).slice(2, 6), d: todayISO, n: String(name).trim(), k };
+    persist([...items, entry]);
+    setFlash(`سُجّلت «${entry.n}» — ${k} سعرة ✓`);
+    setNm(""); setKc("");
+    logCalories(userKey, entry).then((r) => { if (r && r.ok && !r.local) setCloud(true); }).catch(() => {});
+  };
+
+  const today = items.filter((x) => x.d === todayISO);
+  const totToday = today.reduce((t, x) => t + (+x.k || 0), 0);
+  const pct = Math.min(100, Math.round((totToday / target) * 100));
+  const remain = target - totToday;
+
+  // ملخص آخر 7 أيام للرسم البياني
+  const week = [...Array(7)].map((_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - (6 - i));
+    const iso = isoOf(d);
+    return { name: DAY_AR[d.getDay()], kcal: items.filter((x) => x.d === iso).reduce((t, x) => t + (+x.k || 0), 0) };
+  });
+
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+        <h3 className="font-black flex items-center gap-2"><Flame size={18} className="text-amber-400" /> سجلّ سعراتك اليومي</h3>
+        <span className={`text-[10px] font-black px-2.5 py-1 rounded-full border ${cloud ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-zinc-800 border-zinc-700 text-zinc-400"}`}>
+          {cloud ? "☁️ محفوظ في حسابك — يظهر عند دخولك من أي جهاز" : "💾 محفوظ على هذا الجهاز"}
+        </span>
+      </div>
+      <p className="text-xs text-zinc-500 mb-4">سجّل ما تأكله أولاً بأول — نقارنه بهدفك اليومي ونرسم التزامك أسبوعياً.</p>
+
+      {/* عداد اليوم مقابل الهدف */}
+      <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4 mb-4">
+        <div className="flex items-end justify-between mb-2 flex-wrap gap-2">
+          <p className="text-sm"><b className={`text-2xl font-black ${totToday > target ? "text-rose-400" : "text-amber-300"}`}>{totToday}</b><span className="text-zinc-500"> / {target} سعرة اليوم</span></p>
+          <p className={`text-xs font-bold ${remain >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+            {remain >= 0 ? `متبقٍ لك ${remain} سعرة 👌` : `تجاوزت هدفك بـ ${Math.abs(remain)} سعرة ⚠️`}
+          </p>
+        </div>
+        <div className="h-3 bg-zinc-800 rounded-full overflow-hidden">
+          <div className={`h-full rounded-full transition-all ${totToday > target ? "bg-rose-500" : "bg-gradient-to-l from-amber-400 to-amber-300"}`} style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+
+      {/* تسجيل سريع للوجبات المقترحة */}
+      <p className="text-xs font-bold text-zinc-400 mb-2">تسجيل سريع — وجبات خطتك:</p>
+      <div className="flex flex-wrap gap-2 mb-4">
+        {quickMeals.map((q) => (
+          <button key={q.t} onClick={() => addEntry(q.t + " (من خطتي)", q.k)}
+            className="text-xs font-bold bg-zinc-950 border border-zinc-700 hover:border-amber-400/60 hover:text-amber-300 text-zinc-300 px-3 py-2 rounded-xl transition-colors">
+            ＋ {q.t} · {q.k} سعرة
+          </button>
+        ))}
+      </div>
+
+      {/* إدخال يدوي */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <input value={nm} onChange={(e) => setNm(e.target.value)} placeholder="ماذا أكلت؟ (مثال: شاورما دجاج)"
+          className="flex-1 bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-3 placeholder-zinc-600 focus:border-amber-400 focus:outline-none" />
+        <input type="number" value={kc} onChange={(e) => setKc(e.target.value)} placeholder="السعرات" dir="ltr"
+          onKeyDown={(e) => e.key === "Enter" && addEntry(nm, kc)}
+          className="sm:w-32 bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-3 placeholder-zinc-600 focus:border-amber-400 focus:outline-none" />
+        <button onClick={() => addEntry(nm, kc)} disabled={!nm.trim() || !kc}
+          className="bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-zinc-950 font-black px-6 py-3 rounded-xl transition-colors">تسجيل</button>
+      </div>
+      {flash && <p className="text-xs text-emerald-400 font-bold mt-2">{flash}</p>}
+
+      {/* قائمة اليوم */}
+      {today.length > 0 && (
+        <div className="mt-4 space-y-1.5">
+          {today.map((x) => (
+            <div key={x.id} className="flex items-center justify-between bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm">
+              <span className="font-semibold">{x.n}</span>
+              <span className="flex items-center gap-3">
+                <b className="text-amber-300 whitespace-nowrap">{x.k} سعرة</b>
+                <button onClick={() => persist(items.filter((y) => y.id !== x.id))}
+                  className="text-zinc-600 hover:text-rose-400 transition-colors" aria-label="حذف"><X size={15} /></button>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* رسم آخر 7 أيام */}
+      <div className="mt-5">
+        <p className="text-xs font-bold text-zinc-400 mb-2">آخر 7 أيام:</p>
+        <div className="h-40" dir="ltr">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={week}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+              <XAxis dataKey="name" stroke="#71717a" fontSize={10} />
+              <YAxis stroke="#71717a" fontSize={10} width={38} />
+              <Tooltip contentStyle={{ background: "#18181b", border: "1px solid #3f3f46", borderRadius: 12, color: "#fff" }} formatter={(v) => [`${v} سعرة`, "المسجّل"]} />
+              <Bar dataKey="kcal" name="سعرات" fill="#d4a955" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </div>
   );
@@ -2041,27 +2331,48 @@ function Nutrition({ profile }) {
         ))}
       </div>
 
-      {/* خطة الوجبات مع التبديل */}
+      {/* خطة الوجبات مع التبديل — كميات مضبوطة على سعرات المشترك */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
         <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
           <h3 className="font-black flex items-center gap-2"><Utensils size={18} className="text-amber-400" /> خطتك الغذائية — {goalWord}</h3>
           <span className="text-xs text-zinc-500">🔄 3 خيارات لكل وجبة</span>
         </div>
-        <p className="text-xs text-zinc-500 mb-4">لا يعجبك خيار؟ بدّله — كل البدائل بنفس التوزيع الغذائي تقريباً.</p>
+        <p className="text-xs text-zinc-500 mb-4">
+          الكميات أدناه <b className="text-amber-300">محسوبة على سعراتك أنت</b> ({target} سعرة) — بدّل أي وجبة، فكل البدائل بنفس التوزيع الغذائي تقريباً.
+        </p>
         <div className="grid md:grid-cols-2 gap-3">
           {MEALS.map((meal) => {
+            const mealKcal = Math.round(target * meal.share);
             const idx = choice[meal.id] || 0;
             const op = meal.options[idx];
+            const f = Math.min(1.7, Math.max(0.55, mealKcal / op.kcal));
+            const mp = Math.round(op.p * f), mc = Math.round(op.c * f), mf = Math.round(op.f * f);
             return (
-              <div key={meal.id} className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4">
+              <div key={meal.id} className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4 flex flex-col">
                 <div className="flex items-center justify-between mb-2">
                   <p className="font-black text-sm">{meal.title}</p>
-                  <span className="text-xs font-bold text-amber-300">≈ {Math.round(target * meal.share)} سعرة</span>
+                  <span className="text-xs font-bold text-amber-300">≈ {mealKcal} سعرة</span>
                 </div>
-                <p className="text-sm text-zinc-200 leading-relaxed min-h-[42px]">{op.name}</p>
+                <ul className="space-y-1 mb-2">
+                  {op.items.map((it) => {
+                    const a = scaleAmt(it, f);
+                    return (
+                      <li key={it.n} className="text-sm text-zinc-200 flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400/70 shrink-0" />
+                        <b className="text-amber-200 whitespace-nowrap" dir="ltr">{a.v}{a.u === "جم" || a.u === "مل" ? a.u : ` ${a.u}`}</b>
+                        <span>{it.n}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <div className="flex flex-wrap gap-1.5 mb-1">
+                  <span className="text-[10px] font-black bg-rose-500/10 text-rose-400 border border-rose-500/25 px-2 py-0.5 rounded-full">بروتين {mp}جم</span>
+                  <span className="text-[10px] font-black bg-sky-500/10 text-sky-400 border border-sky-500/25 px-2 py-0.5 rounded-full">كربوهيدرات {mc}جم</span>
+                  <span className="text-[10px] font-black bg-amber-500/10 text-amber-400 border border-amber-500/25 px-2 py-0.5 rounded-full">دهون {mf}جم</span>
+                </div>
                 <p className="text-[11px] text-zinc-500 mt-1">{op.tag}</p>
                 <button onClick={() => setChoice({ ...choice, [meal.id]: (idx + 1) % meal.options.length })}
-                  className="mt-3 text-xs font-bold bg-amber-400/15 text-amber-300 border border-amber-400/30 hover:bg-amber-400 hover:text-zinc-950 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1.5">
+                  className="mt-3 text-xs font-bold bg-amber-400/15 text-amber-300 border border-amber-400/30 hover:bg-amber-400 hover:text-zinc-950 px-3 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1.5 self-start">
                   <RefreshCw size={12} /> بدّل الوجبة ({idx + 1}/{meal.options.length})
                 </button>
               </div>
@@ -2072,6 +2383,10 @@ function Nutrition({ profile }) {
           ⚕️ هذه الخطة إرشادية عامة مبنية على معادلات علمية — إن كانت لديك حالة صحية أو حساسية غذائية فاستشر مختص تغذية.
         </p>
       </div>
+
+      {/* سجلّ السعرات اليومي — يُحفظ في حساب المشترك */}
+      <CalorieTracker profile={profile} target={target}
+        quickMeals={MEALS.map((meal) => ({ t: meal.title, k: Math.round(target * meal.share) }))} />
     </div>
   );
 }
@@ -2828,11 +3143,35 @@ export default function App() {
   const [profile, setProfile] = useState(null);
   const [plan, setPlan] = useState(null);
   const [site, setSite] = useState({ connected: false });
+  const [ready, setReady] = useState(false); // انتظر استعادة الجلسة قبل العرض
   // الكوبونات مشتركة بين لوحة الإدارة وبوابة الدفع
   const [coupons, setCoupons] = useState([
     { code: "JAGH10", kind: "percent", val: 10, max: 100, uses: 12, active: true },
     { code: "WELCOME5", kind: "fixed", val: 5, max: 50, uses: 4, active: true },
   ]);
+
+  // أدوات حفظ الجلسة بأمان (تعمل على الموقع المنشور، وتتجاهل الأخطاء في المعاينة)
+  const saveSession = (key, val) => {
+    try { window.localStorage.setItem(key, JSON.stringify(val)); } catch {}
+  };
+  const clearSession = () => {
+    try { ["jg_profile", "jg_plan", "jg_admin"].forEach((k) => window.localStorage.removeItem(k)); } catch {}
+  };
+
+  // استعادة الجلسة المحفوظة عند فتح الموقع (تذكّر الدخول)
+  useEffect(() => {
+    try {
+      const p = JSON.parse(window.localStorage.getItem("jg_profile") || "null");
+      const pl = JSON.parse(window.localStorage.getItem("jg_plan") || "null");
+      const adm = window.localStorage.getItem("jg_admin") === "1";
+      if (p) setProfile(p);
+      if (pl) setPlan(pl);
+      if (adm) setAdminUnlocked(true);
+      // إن كان مشتركاً مسجّلاً، ادخله مباشرة للوحة تحكمه
+      if (p && pl) setView("dashboard");
+    } catch {}
+    setReady(true);
+  }, []);
 
   // تحميل بيانات جوجل شيت (أسعار، فيديوهات، كوبونات) عند الفتح
   useEffect(() => {
@@ -2851,6 +3190,8 @@ export default function App() {
     return () => document.head.removeChild(link);
   }, []);
 
+  if (!ready) return <div className="min-h-screen bg-zinc-950" />;
+
   return (
     <SiteData.Provider value={site}>
     <div dir="rtl" className="min-h-screen bg-zinc-950 text-white" style={{ fontFamily: "'Cairo', 'Segoe UI', sans-serif" }}>
@@ -2867,7 +3208,9 @@ export default function App() {
       {view === "login" && <Login onBack={() => setView("landing")} onLogin={(acc) => {
         // مشترك مُفعّل سجّل دخوله: ادخله للوحة التحكم ببياناته
         if (acc && acc.name) {
-          setProfile((prev) => prev || { name: acc.name, age: 25, weight: 75, height: 175, days: 4, goal: acc.goal || "muscle", equipment: ["دمبل", "وزن الجسم"], injuries: [], weakPoints: [] });
+          setProfile((prev) => prev
+            ? { ...prev, username: prev.username || acc.username || "", email: prev.email || acc.email || "" }
+            : { name: acc.name, username: acc.username || "", email: acc.email || "", age: 25, weight: 75, height: 175, days: 4, goal: acc.goal || "muscle", equipment: ["دمبل", "وزن الجسم"], injuries: [], weakPoints: [] });
           setPlan({ tier: acc.tier || "basic", name: acc.plan || "مشترك", tierLabel: acc.tier === "premium" ? "اشتراك Premium" : "الاشتراك الأساسي" });
           setView("dashboard");
         } else {
