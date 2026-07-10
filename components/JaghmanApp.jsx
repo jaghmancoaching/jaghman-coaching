@@ -1028,13 +1028,81 @@ const ANATOMY_YT = {
   "سكوات بار خلفي": "H5VYU6t_w9o",
 };
 const EN_OF = {
-  "ضغط بار مستوي": "bench press", "ضغط دمبل مائل علوي": "incline dumbbell press", "تفتيح كيبل": "cable fly",
-  "تجديف بار منحني": "barbell row", "سحب علوي (عقلة)": "pull up", "سحب أرضي رومانى (RDL)": "romanian deadlift",
-  "ضغط كتف بار واقف": "overhead press", "رفرفة جانبية دمبل": "lateral raise", "فيس بول (كتف خلفي)": "face pull",
-  "دفع كيبل للأسفل": "tricep pushdown", "ضغط بار قبضة ضيقة": "close grip bench press",
-  "مرجحة بار": "barbell curl", "مرجحة مطرقة (Hammer)": "hammer curl",
-  "سكوات بار خلفي": "squat", "اندفاع أمامي دمبل (Lunges)": "lunge", "ثني أرجل خلفي بالآلة": "leg curl",
-  "رفع سمانة واقف": "calf raise", "بلانك (Plank)": "plank", "رفع أرجل معلق": "hanging leg raise",
+  "ضغط بار مستوي": "barbell bench press",
+  "ضغط دمبل مستوي": "dumbbell bench press",
+  "ضغط آلة الصدر": "chest press machine",
+  "تمرين الضغط الأرضي": "push up",
+  "ضغط دمبل مائل علوي": "incline dumbbell press",
+  "ضغط بار مائل": "incline barbell press",
+  "ضغط علوي بالكيبل": "cable chest press",
+  "ضغط مائل بالأشرطة": "resistance band incline press",
+  "تفتيح كيبل": "cable fly",
+  "تفتيح دمبل مستوي": "dumbbell fly",
+  "آلة الفراشة": "pec deck machine fly",
+  "تفتيح بأشرطة مقاومة": "resistance band chest fly",
+  "تجديف بار منحني": "barbell row",
+  "تجديف دمبل بذراع واحدة": "one arm dumbbell row",
+  "تجديف كيبل جالس": "seated cable row",
+  "تجديف مقلوب بوزن الجسم": "inverted row",
+  "سحب علوي (عقلة)": "pull up",
+  "سحب أمامي بالكيبل (Lat Pulldown)": "lat pulldown",
+  "سحب بآلة مساعدة": "assisted pull up machine",
+  "سحب بأشرطة مقاومة": "resistance band lat pulldown",
+  "سحب أرضي رومانى (RDL)": "romanian deadlift",
+  "سحب رومانى بالدمبل": "dumbbell romanian deadlift",
+  "سحب من بين الأرجل بالكيبل": "cable pull through",
+  "تمرين الجسر الأرضي": "glute bridge",
+  "سحب عقلة قبضة ضيقة": "close grip pull up",
+  "ضغط كتف بار واقف": "overhead press",
+  "ضغط كتف دمبل جالس": "seated dumbbell shoulder press",
+  "ضغط كتف بالآلة": "shoulder press machine",
+  "ضغط كتف بالأشرطة": "resistance band shoulder press",
+  "رفرفة جانبية دمبل": "dumbbell lateral raise",
+  "رفرفة جانبية كيبل": "cable lateral raise",
+  "رفرفة جانبية بالآلة": "lateral raise machine",
+  "رفرفة بأشرطة مقاومة": "resistance band lateral raise",
+  "فيس بول (كتف خلفي)": "face pull",
+  "رفرفة خلفية دمبل منحني": "bent over reverse fly",
+  "آلة الفراشة العكسية": "reverse pec deck",
+  "سحب وجه بالأشرطة": "resistance band face pull",
+  "دفع كيبل للأسفل": "tricep pushdown",
+  "امتداد خلفي دمبل فوق الرأس": "overhead dumbbell tricep extension",
+  "تمرين الغطس على البنش": "bench dips",
+  "دفع بأشرطة مقاومة": "resistance band tricep pushdown",
+  "ضغط بار قبضة ضيقة": "close grip bench press",
+  "ضغط دمبل قبضة محايدة": "neutral grip dumbbell press",
+  "غطس متوازي": "parallel bar dips",
+  "ضغط ضيق بالآلة": "close grip machine press",
+  "مرجحة بار": "barbell curl",
+  "مرجحة دمبل بالتبادل": "alternating dumbbell curl",
+  "مرجحة كيبل": "cable curl",
+  "مرجحة بأشرطة مقاومة": "resistance band curl",
+  "مرجحة مطرقة (Hammer)": "hammer curl",
+  "مرجحة حبل كيبل": "cable rope hammer curl",
+  "مرجحة مطرقة بالأشرطة": "resistance band hammer curl",
+  "سكوات بار خلفي": "back squat",
+  "سكوات كأس بالدمبل (Goblet)": "goblet squat",
+  "دفع أرجل بالآلة (Leg Press)": "leg press",
+  "سكوات بوزن الجسم": "bodyweight squat",
+  "اندفاع أمامي دمبل (Lunges)": "dumbbell lunges",
+  "اندفاع بار خلفي": "barbell lunge",
+  "اندفاع بوزن الجسم": "bodyweight lunge",
+  "طلوع درج (Step-up)": "step up exercise",
+  "ثني أرجل خلفي بالآلة": "leg curl machine",
+  "ثني أرجل بأشرطة": "resistance band leg curl",
+  "جسر أرضي بساق واحدة": "single leg glute bridge",
+  "رفع سمانة واقف": "standing calf raise",
+  "رفع سمانة بالدمبل": "dumbbell calf raise",
+  "رفع سمانة بوزن الجسم على درجة": "bodyweight calf raise",
+  "سمانة على آلة دفع الأرجل": "leg press calf raise",
+  "بلانك (Plank)": "plank",
+  "بلانك جانبي": "side plank",
+  "بلانك بسحب كيبل (Pallof)": "pallof press",
+  "بلانك بشريط مقاومة": "resistance band plank",
+  "رفع أرجل معلق": "hanging leg raise",
+  "رفع أرجل مستلقي": "lying leg raise",
+  "طحن كيبل (Cable Crunch)": "cable crunch",
+  "طحن بالآلة": "ab crunch machine",
 };
 
 const GROUP_PATTERN = { "صدر": "pressH", "ظهر": "row", "أكتاف": "pressV", "ترايسبس": "pushdown", "بايسبس": "curl", "أرجل": "squat", "بطن": "plank" };
@@ -2652,11 +2720,11 @@ function AdminGate({ onBack, onUnlock }) {
   );
 }
 
-/* أداة إدارة فيديوهات التشريح 3D — تختبر التضمين مباشرة قبل الاعتماد،
-   فلا يظهر "الفيديو غير متوفر" للمشترك أبداً. تُحفظ لكل مجموعة عضلية. */
-const VID_GROUPS = ["صدر", "ظهر", "أكتاف", "بايسبس", "ترايسبس", "أرجل", "بطن"];
+/* أداة إدارة فيديوهات التشريح 3D — على مستوى كل تمرين بعينه.
+   تعرض كل التمارين مجمّعة تحت عضلاتها، ولكل تمرين خانة اختبار + اعتماد مستقل.
+   تختبر التضمين قبل الحفظ فلا يظهر "غير متوفر" للمشترك. تُحفظ في جدول جوجل عبر site.anatomy. */
 
-// استخراج معرّف يوتيوب من أي صيغة رابط (watch, youtu.be, shorts, embed) أو معرّف مجرّد
+// استخراج معرّف يوتيوب من أي صيغة رابط أو معرّف مجرّد
 function ytIdFrom(input) {
   const s = String(input || "").trim();
   if (!s) return "";
@@ -2665,95 +2733,153 @@ function ytIdFrom(input) {
   return m ? m[1] : "";
 }
 
+// كل التمارين مجمّعة حسب المجموعة العضلية — الأساسية + البدائل (بلا تكرار)
+function allExercisesByGroup() {
+  const out = {};
+  Object.keys(EXERCISE_DB).forEach((g) => {
+    const set = new Set();
+    EXERCISE_DB[g].forEach((ex) => {
+      set.add(ex.name);
+      (ex.alts || []).forEach((a) => set.add(a.name));
+    });
+    out[g] = [...set];
+  });
+  return out;
+}
+
 function VideoAdmin() {
   const site = useSite();
-  const existing = (site.anatomyByGroup) || {};
+  const byGroup = React.useMemo(allExercisesByGroup, []);
+  const existing = (site.anatomy) || {};
   const [map, setMap] = useState(() => ({ ...existing }));
-  const [inputs, setInputs] = useState(() => {
-    const o = {}; VID_GROUPS.forEach((g) => (o[g] = existing[g] || "")); return o;
-  });
-  const [testing, setTesting] = useState(null); // {group, id}
+  const [inputs, setInputs] = useState({});
+  const [testing, setTesting] = useState(null); // {name, id}
+  const [openG, setOpenG] = useState(Object.keys(byGroup)[0] || null);
   const [saveMsg, setSaveMsg] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const startTest = (g) => {
-    const id = ytIdFrom(inputs[g]);
+  const startTest = (name) => {
+    const id = ytIdFrom(inputs[name]);
     if (!id) { setSaveMsg("⚠️ الرابط غير صالح — انسخ رابط الفيديو كاملاً من يوتيوب"); return; }
-    setSaveMsg("");
-    setTesting({ group: g, id });
+    setSaveMsg(""); setTesting({ name, id });
   };
-
-  const confirmWorks = (g, id) => {
-    setMap((m) => ({ ...m, [g]: id }));
-    setTesting(null);
-    setSaveMsg(`✓ اعتُمد فيديو «${g}» — لا تنسَ الحفظ في الأسفل`);
+  const confirmWorks = (name, id) => {
+    setMap((m) => ({ ...m, [name]: id })); setTesting(null);
+    setSaveMsg(`✓ اعتُمد فيديو «${name}» — لا تنسَ الحفظ في الأسفل`);
   };
   const markBad = () => { setTesting(null); setSaveMsg("جرّب فيديو آخر — هذا لا يسمح بالعرض داخل الموقع"); };
-
-  const removeG = (g) => { setMap((m) => { const c = { ...m }; delete c[g]; return c; }); setInputs((i) => ({ ...i, [g]: "" })); };
+  const removeEx = (name) => { setMap((m) => { const c = { ...m }; delete c[name]; return c; }); setInputs((i) => ({ ...i, [name]: "" })); };
 
   const saveAll = async () => {
     setSaving(true); setSaveMsg("جارٍ الحفظ...");
-    if (site.mergeAnatomyByGroup) site.mergeAnatomyByGroup(map); // يظهر فوراً للمشتركين في هذه الجلسة
+    if (site.mergeAnatomy) site.mergeAnatomy(map); // يظهر فوراً للمشتركين في هذه الجلسة
     try {
       if (saveAnatomyVideos) { await saveAnatomyVideos(map); setSaveMsg("✓ حُفظت في جدول جوجل — دائمة لكل الأجهزة"); }
       else setSaveMsg("✓ اعتُمدت وظهرت للمشتركين. لتخزينها دائماً بعد كل نشر، فعّل saveAnatomyVideos (راجع الدليل).");
     } catch { setSaveMsg("✓ معتمدة في هذه الجلسة — تعذّر الحفظ الدائم في الجدول"); }
-    setSaving(false);
-    setTimeout(() => setSaveMsg(""), 7000);
+    setSaving(false); setTimeout(() => setSaveMsg(""), 7000);
   };
+
+  const totalDone = Object.keys(map).filter((k) => map[k]).length;
+  const totalEx = Object.values(byGroup).reduce((t, arr) => t + arr.length, 0);
 
   return (
     <div className="space-y-4">
       <div className="bg-amber-400/10 border border-amber-400/30 rounded-2xl p-4 text-sm text-zinc-300 leading-relaxed">
-        🧬 لكل مجموعة عضلية، الصق رابط فيديو تشريح 3D من يوتيوب ثم اضغط <b className="text-amber-300">اختبار</b>.
-        يُعرض الفيديو هنا فوراً — إن اشتغل، اضغط <b className="text-emerald-400">يعمل ✓ اعتمده</b>. هكذا تضمن ألا يرى المشترك رسالة خطأ.
-        <br />المجموعة بلا فيديو تعرض للمشترك العرض التوضيحي الحركي المدمج تلقائياً.
+        🧬 لكل تمرين، ثلاث خطوات سهلة:
+        <span className="block mt-1.5 text-xs text-zinc-400 leading-relaxed">
+          <b className="text-sky-400">1)</b> اضغط <b className="text-sky-400">🔎 ابحث تشريح 3D</b> — يفتح يوتيوب على نتائج هذا التمرين بالضبط ·
+          <b className="text-sky-400">2)</b> افتح الفيديو المناسب وانسخ رابطه والصقه في الخانة ·
+          <b className="text-sky-400">3)</b> اضغط <b className="text-amber-300">اختبار</b> ثم <b className="text-emerald-400">يعمل ✓ اعتمده</b>.
+        </span>
+        <div className="mt-2 text-xs text-zinc-400">المعتمَد حتى الآن: <b className="text-emerald-400">{totalDone}</b> من {totalEx} تمرين · التمرين بلا فيديو يعرض للمشترك العرض التوضيحي الحركي المدمج تلقائياً.</div>
       </div>
 
-      {VID_GROUPS.map((g) => {
-        const saved = map[g];
-        const isTesting = testing && testing.group === g;
+      {Object.keys(byGroup).map((g) => {
+        const exs = byGroup[g];
+        const doneInG = exs.filter((n) => map[n]).length;
+        const isOpen = openG === g;
         return (
-          <div key={g} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-            <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+          <div key={g} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+            <button onClick={() => setOpenG(isOpen ? null : g)}
+              className="w-full flex items-center justify-between px-4 py-3 hover:bg-zinc-800/40 transition-colors">
               <div className="flex items-center gap-2">
                 <GroupBadge g={g} />
-                {saved
-                  ? <span className="text-[11px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.5 rounded-full">✓ فيديو معتمد</span>
-                  : <span className="text-[11px] font-bold text-zinc-500 bg-zinc-800 border border-zinc-700 px-2 py-0.5 rounded-full">لا فيديو — عرض توضيحي</span>}
+                <span className="text-sm font-black">{g}</span>
+                <span className="text-[11px] text-zinc-500">({exs.length} تمرين)</span>
               </div>
-              {saved && <button onClick={() => removeG(g)} className="text-[11px] font-bold text-rose-400 hover:text-rose-300">إزالة</button>}
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input value={inputs[g]} onChange={(e) => setInputs({ ...inputs, [g]: e.target.value })}
-                placeholder="الصق رابط فيديو يوتيوب هنا" dir="ltr"
-                className="flex-1 bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm placeholder-zinc-600 focus:border-amber-400 focus:outline-none" />
-              <button onClick={() => startTest(g)}
-                className="bg-amber-400/15 text-amber-300 border border-amber-400/30 hover:bg-amber-400 hover:text-zinc-950 font-black text-sm px-5 py-2.5 rounded-xl transition-colors whitespace-nowrap">
-                اختبار
-              </button>
-            </div>
-
-            {isTesting && (
-              <div className="mt-3">
-                <div className="bg-black border border-zinc-700 rounded-xl overflow-hidden" style={{ aspectRatio: "16 / 9" }}>
-                  <iframe src={`https://www.youtube.com/embed/${testing.id}?rel=0&modestbranding=1`}
-                    title={`اختبار ${g}`} style={{ width: "100%", height: "100%", border: 0 }}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
-                </div>
-                <p className="text-[11px] text-zinc-500 mt-2">شاهد الفيديو أعلاه — هل يعمل ويظهر التشريح المطلوب؟</p>
-                <div className="flex gap-2 mt-2">
-                  <button onClick={() => confirmWorks(g, testing.id)}
-                    className="bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-sm px-5 py-2 rounded-xl transition-colors">يعمل ✓ اعتمده</button>
-                  <button onClick={markBad}
-                    className="border border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-800 font-bold text-sm px-5 py-2 rounded-xl transition-colors">لا يعمل — جرّب غيره</button>
-                </div>
+              <div className="flex items-center gap-2">
+                <span className={`text-[11px] font-black px-2 py-0.5 rounded-full ${doneInG ? "text-emerald-400 bg-emerald-500/10 border border-emerald-500/25" : "text-zinc-500 bg-zinc-800 border border-zinc-700"}`}>
+                  {doneInG}/{exs.length} معتمد
+                </span>
+                <ChevronDown size={16} className={`text-zinc-500 transition-transform ${isOpen ? "rotate-180" : ""}`} />
               </div>
-            )}
+            </button>
 
-            {saved && !isTesting && (
-              <p className="text-[11px] text-emerald-400/90 mt-2" dir="ltr">✓ {saved}</p>
+            {isOpen && (
+              <div className="px-4 pb-4 space-y-2 border-t border-zinc-800 pt-3">
+                {exs.map((name) => {
+                  const saved = map[name];
+                  const isTesting = testing && testing.name === name;
+                  return (
+                    <div key={name} className="bg-zinc-950 border border-zinc-800 rounded-xl p-3">
+                      <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold">{name}</span>
+                          {saved
+                            ? <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.5 rounded-full">✓ معتمد</span>
+                            : <span className="text-[10px] font-bold text-zinc-500 bg-zinc-800 border border-zinc-700 px-2 py-0.5 rounded-full">عرض توضيحي</span>}
+                        </div>
+                        {saved && <button onClick={() => removeEx(name)} className="text-[10px] font-bold text-rose-400 hover:text-rose-300">إزالة</button>}
+                      </div>
+                      {(() => {
+                        const en = EN_OF[name] || name;
+                        const q3d = encodeURIComponent(en + " muscle anatomy 3d");
+                        const qForm = encodeURIComponent("how to " + en + " proper form");
+                        return (
+                          <div className="flex flex-wrap gap-1.5 mb-2">
+                            <a href={`https://www.youtube.com/results?search_query=${q3d}`} target="_blank" rel="noreferrer"
+                              className="inline-flex items-center gap-1 text-[11px] font-black text-sky-400 bg-sky-500/10 border border-sky-500/25 hover:bg-sky-500/20 px-2.5 py-1.5 rounded-lg transition-colors">
+                              🔎 ابحث تشريح 3D ↗
+                            </a>
+                            <a href={`https://www.youtube.com/results?search_query=${qForm}`} target="_blank" rel="noreferrer"
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-zinc-400 bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 px-2.5 py-1.5 rounded-lg transition-colors">
+                              🎬 ابحث أداء ↗
+                            </a>
+                            <span className="text-[10px] text-zinc-600 self-center" dir="ltr">{en}</span>
+                          </div>
+                        );
+                      })()}
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <input value={inputs[name] || ""} onChange={(e) => setInputs({ ...inputs, [name]: e.target.value })}
+                          placeholder="الصق رابط يوتيوب هنا بعد اختيار الفيديو" dir="ltr"
+                          className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm placeholder-zinc-600 focus:border-amber-400 focus:outline-none" />
+                        <button onClick={() => startTest(name)}
+                          className="bg-amber-400/15 text-amber-300 border border-amber-400/30 hover:bg-amber-400 hover:text-zinc-950 font-black text-xs px-4 py-2 rounded-lg transition-colors whitespace-nowrap">
+                          اختبار
+                        </button>
+                      </div>
+
+                      {isTesting && (
+                        <div className="mt-2">
+                          <div className="bg-black border border-zinc-700 rounded-lg overflow-hidden" style={{ aspectRatio: "16 / 9" }}>
+                            <iframe src={`https://www.youtube.com/embed/${testing.id}?rel=0&modestbranding=1`}
+                              title={`اختبار ${name}`} style={{ width: "100%", height: "100%", border: 0 }}
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+                          </div>
+                          <div className="flex gap-2 mt-2">
+                            <button onClick={() => confirmWorks(name, testing.id)}
+                              className="bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-xs px-4 py-2 rounded-lg transition-colors">يعمل ✓ اعتمده</button>
+                            <button onClick={markBad}
+                              className="border border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-800 font-bold text-xs px-4 py-2 rounded-lg transition-colors">لا يعمل</button>
+                          </div>
+                        </div>
+                      )}
+                      {saved && !isTesting && <p className="text-[10px] text-emerald-400/90 mt-1.5" dir="ltr">✓ {saved}</p>}
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         );
@@ -3244,8 +3370,8 @@ export default function App() {
   const [profile, setProfile] = useState(null);
   const [plan, setPlan] = useState(null);
   const [site, setSite] = useState({ connected: false });
-  // دمج فيديوهات التشريح المعتمدة من لوحة الإدارة فوراً في السياق (تظهر للمشترك بلا انتظار)
-  const mergeAnatomyByGroup = React.useCallback((m) => setSite((s) => ({ ...s, anatomyByGroup: { ...(s.anatomyByGroup || {}), ...m } })), []);
+  // دمج فيديوهات التشريح المعتمدة (لكل تمرين) من لوحة الإدارة فوراً في السياق
+  const mergeAnatomy = React.useCallback((m) => setSite((s) => ({ ...s, anatomy: { ...(s.anatomy || {}), ...m } })), []);
   const [ready, setReady] = useState(false); // انتظر استعادة الجلسة قبل العرض
   // الكوبونات مشتركة بين لوحة الإدارة وبوابة الدفع
   const [coupons, setCoupons] = useState([
@@ -3296,7 +3422,7 @@ export default function App() {
   if (!ready) return <div className="min-h-screen bg-zinc-950" />;
 
   return (
-    <SiteData.Provider value={{ ...site, mergeAnatomyByGroup }}>
+    <SiteData.Provider value={{ ...site, mergeAnatomy }}>
     <div dir="rtl" className="min-h-screen bg-zinc-950 text-white" style={{ fontFamily: "'Cairo', 'Segoe UI', sans-serif" }}>
       <style>{AI_CSS}</style>
       {view === "landing" && <Landing onStart={() => setView("onboarding")} onLibrary={() => setView("library")} onLogin={() => setView("login")}
