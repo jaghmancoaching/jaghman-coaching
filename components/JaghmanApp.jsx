@@ -17,6 +17,7 @@ const googleLogin = sheet.googleLogin || (async () => ({ ok: false, error: "demo
 const logCalories = sheet.logCalories || (async () => ({ ok: true, local: true }));
 const getCalories = sheet.getCalories || (async () => ({ ok: false, local: true, items: [] }));
 const GOOGLE_CLIENT_ID = sheet.GOOGLE_CLIENT_ID || ""; // يُفعّل زر جوجل عند وضع المعرّف في sheetData.js
+const saveAnatomyVideos = sheet.saveAnatomyVideos || null; // حفظ فيديوهات التشريح 3D في جدول جوجل (اختياري)
 
 // سياق يوفّر بيانات الجدول لكل مكونات الموقع
 const SiteData = React.createContext({ connected: false });
@@ -1014,8 +1015,17 @@ const JEFF_YT = {
    ANATOMY_YT: لإضافة تمرين، افتح فيديو التشريح على قناتهم وانسخ معرّفه هنا
    (ما بعد watch?v= أو shorts/). أي تمرين بلا معرّف يعرض زراً يبحث داخل قناتهم حصراً. */
 const ANATOMY_CH = "https://www.youtube.com/channel/UCo0du-IzWuYaVf9QTg10nAQ"; // Muscle and Motion
+
+/* فيديو تشريح 3D احتياطي لكل مجموعة عضلية.
+   القيم هنا مؤكّدة يدوياً فقط — تُدار وتُوسَّع من لوحة الإدارة (تبويب فيديوهات 3D)
+   التي تختبر التضمين قبل الحفظ، ثم تُخزَّن في جدول جوجل وتُقرأ عبر site.anatomyByGroup. */
+const ANATOMY_BY_GROUP = {
+  "أرجل": "H5VYU6t_w9o", // Squat — Anatomical Analysis (Muscle and Motion) — مؤكّد قابل للتضمين
+};
+
+// فيديو تشريح 3D لتمرين بعينه (أدق من الاحتياطي)
 const ANATOMY_YT = {
-  // مثال: "سكوات بار خلفي": "معرف-الفيديو",
+  "سكوات بار خلفي": "H5VYU6t_w9o",
 };
 const EN_OF = {
   "ضغط بار مستوي": "bench press", "ضغط دمبل مائل علوي": "incline dumbbell press", "تفتيح كيبل": "cable fly",
@@ -1381,18 +1391,18 @@ function ExerciseModal({ ex, onClose, onSwap, equipment }) {
   useEffect(() => { setVtab("anatomy"); }, [ex]);
   if (!ex) return null;
   const en = EN_OF[ex.name] || ex.name;
-  /* الفيديو يعمل مباشرة داخل الموقع دائماً:
-     - إن حُدّد معرّف فيديو (من جدول جوجل عبر anatomy/videos، أو من القائمة المدمجة) يُشغَّل هو.
-     - وإلا يشغّل مشغّل يوتيوب الرسمي نتيجة البحث فوراً داخل الصفحة (listType=search) —
-       بلا مغادرة الموقع وبلا بحث يدوي من المستخدم. */
-  const anatomyId = (site.anatomy && site.anatomy[ex.name]) || ANATOMY_YT[ex.name];
-  const ytId = (site.videos && site.videos[ex.name]) || JEFF_YT[ex.name];
-  const anatomySrc = anatomyId
-    ? `https://www.youtube.com/embed/${anatomyId}?rel=0&modestbranding=1`
-    : `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent("Muscle and Motion " + en + " anatomy 3d")}&rel=0&modestbranding=1`;
-  const realSrc = ytId
-    ? `https://www.youtube.com/embed/${ytId}?rel=0&modestbranding=1`
-    : `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent("Jeff Nippard how to " + en)}&rel=0&modestbranding=1`;
+  /* الفيديو يُعرض مضمّناً داخل الموقع من مصادر مؤكّدة فقط (معتمدة من لوحة الإدارة/الكود).
+     المجموعة التي لا فيديو لها بعد تعرض العرض التوضيحي الحركي المدمج — بلا رسالة خطأ. */
+  // فيديو التشريح 3D: تمرين محدّد (جوجل ثم كود) ← احتياطي المجموعة (جوجل ثم كود).
+  // كل هذه المصادر مؤكّدة يدوياً من لوحة الإدارة، فلا يظهر "غير متوفر" أبداً.
+  const anatomyId = (site.anatomy && site.anatomy[ex.name])
+    || ANATOMY_YT[ex.name]
+    || (site.anatomyByGroup && site.anatomyByGroup[ex.group])
+    || ANATOMY_BY_GROUP[ex.group]
+    || null;
+  const ytId = (site.videos && site.videos[ex.name]) || JEFF_YT[ex.name] || null;
+  const anatomySrc = anatomyId ? `https://www.youtube.com/embed/${anatomyId}?rel=0&modestbranding=1&playsinline=1` : null;
+  const realSrc = ytId ? `https://www.youtube.com/embed/${ytId}?rel=0&modestbranding=1&playsinline=1` : null;
   return (
     <Modal open={!!ex} onClose={onClose} wide>
       <div className="p-7">
@@ -1405,18 +1415,32 @@ function ExerciseModal({ ex, onClose, onSwap, equipment }) {
         {/* المشغّل المباشر: التشريح العضلي 3D يعمل فوراً أمام المستخدم */}
         <div className="grid md:grid-cols-3 gap-4 mb-5">
           <div className="md:col-span-2 flex flex-col">
-            <div className="bg-black border border-zinc-700 rounded-2xl overflow-hidden" style={{ aspectRatio: "16 / 9" }}>
-              <iframe
-                key={vtab + "-" + ex.name}
-                src={vtab === "anatomy" ? anatomySrc : realSrc}
-                title={vtab === "anatomy" ? `التشريح العضلي 3D — ${ex.name}` : `الأداء الواقعي — ${ex.name}`}
-                style={{ width: "100%", height: "100%", border: 0 }}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
-            <div className="flex items-center justify-between gap-2 mt-2 flex-wrap">
-              <div className="flex gap-1.5">
+            {(vtab === "anatomy" ? anatomySrc : realSrc) ? (
+              <div className="bg-black border border-zinc-700 rounded-2xl overflow-hidden" style={{ aspectRatio: "16 / 9" }}>
+                <iframe
+                  key={vtab + "-" + ex.name}
+                  src={vtab === "anatomy" ? anatomySrc : realSrc}
+                  title={vtab === "anatomy" ? `التشريح العضلي 3D — ${ex.name}` : `الأداء الواقعي — ${ex.name}`}
+                  style={{ width: "100%", height: "100%", border: 0 }}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            ) : (
+              /* لا فيديو مؤكّد بعد لهذه المجموعة — نعرض التوضيح الحركي المدمج بدل رسالة خطأ */
+              <div className="relative bg-zinc-950 border border-zinc-700 rounded-2xl overflow-hidden flex flex-col" style={{ aspectRatio: "16 / 9" }}>
+                <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: "linear-gradient(rgba(51,65,85,.35) 1px, transparent 1px), linear-gradient(90deg, rgba(51,65,85,.35) 1px, transparent 1px)", backgroundSize: "20px 20px" }} />
+                <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5 bg-zinc-900/90 border border-amber-400/40 text-amber-300 text-[10px] font-black px-2.5 py-1 rounded-full">
+                  <Zap size={11} /> عرض توضيحي للحركة
+                </div>
+                <div className="flex-1 flex items-center justify-center">
+                  <ExerciseAnimation pattern={pattern} paused={false} speed={1} />
+                </div>
+                <p className="relative z-10 text-center text-[10px] text-zinc-500 pb-2">فيديو التشريح 3D لهذه المجموعة قيد الإضافة</p>
+              </div>
+            )}
+            {anatomySrc && realSrc && (
+              <div className="flex gap-1.5 mt-2">
                 <button onClick={() => setVtab("anatomy")}
                   className={`text-[11px] font-black px-3 py-1.5 rounded-lg border transition-colors ${vtab === "anatomy" ? "bg-amber-400 border-amber-400 text-zinc-950" : "border-zinc-700 text-zinc-400 hover:border-amber-400/50"}`}>
                   🧬 تشريح عضلي 3D
@@ -1426,10 +1450,12 @@ function ExerciseModal({ ex, onClose, onSwap, equipment }) {
                   🎬 أداء واقعي
                 </button>
               </div>
-              <p className="text-[10px] text-zinc-600">
-                {vtab === "anatomy" ? "المصدر: Muscle and Motion — عبر مشغّل يوتيوب الرسمي" : "المصدر: Jeff Nippard — عبر مشغّل يوتيوب الرسمي"}
+            )}
+            {anatomySrc && (
+              <p className="text-[10px] text-zinc-600 mt-2">
+                🧬 تشريح عضلي ثلاثي الأبعاد — يوضّح العضلات العاملة أثناء الحركة · المصدر: Muscle and Motion عبر مشغّل يوتيوب الرسمي
               </p>
-            </div>
+            )}
           </div>
           {/* الخريطة العضلية */}
           <div className="bg-zinc-950 border border-zinc-700 rounded-2xl p-3 flex flex-col justify-center">
@@ -2626,6 +2652,124 @@ function AdminGate({ onBack, onUnlock }) {
   );
 }
 
+/* أداة إدارة فيديوهات التشريح 3D — تختبر التضمين مباشرة قبل الاعتماد،
+   فلا يظهر "الفيديو غير متوفر" للمشترك أبداً. تُحفظ لكل مجموعة عضلية. */
+const VID_GROUPS = ["صدر", "ظهر", "أكتاف", "بايسبس", "ترايسبس", "أرجل", "بطن"];
+
+// استخراج معرّف يوتيوب من أي صيغة رابط (watch, youtu.be, shorts, embed) أو معرّف مجرّد
+function ytIdFrom(input) {
+  const s = String(input || "").trim();
+  if (!s) return "";
+  if (/^[\w-]{11}$/.test(s)) return s;
+  const m = s.match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([\w-]{11})/);
+  return m ? m[1] : "";
+}
+
+function VideoAdmin() {
+  const site = useSite();
+  const existing = (site.anatomyByGroup) || {};
+  const [map, setMap] = useState(() => ({ ...existing }));
+  const [inputs, setInputs] = useState(() => {
+    const o = {}; VID_GROUPS.forEach((g) => (o[g] = existing[g] || "")); return o;
+  });
+  const [testing, setTesting] = useState(null); // {group, id}
+  const [saveMsg, setSaveMsg] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const startTest = (g) => {
+    const id = ytIdFrom(inputs[g]);
+    if (!id) { setSaveMsg("⚠️ الرابط غير صالح — انسخ رابط الفيديو كاملاً من يوتيوب"); return; }
+    setSaveMsg("");
+    setTesting({ group: g, id });
+  };
+
+  const confirmWorks = (g, id) => {
+    setMap((m) => ({ ...m, [g]: id }));
+    setTesting(null);
+    setSaveMsg(`✓ اعتُمد فيديو «${g}» — لا تنسَ الحفظ في الأسفل`);
+  };
+  const markBad = () => { setTesting(null); setSaveMsg("جرّب فيديو آخر — هذا لا يسمح بالعرض داخل الموقع"); };
+
+  const removeG = (g) => { setMap((m) => { const c = { ...m }; delete c[g]; return c; }); setInputs((i) => ({ ...i, [g]: "" })); };
+
+  const saveAll = async () => {
+    setSaving(true); setSaveMsg("جارٍ الحفظ...");
+    if (site.mergeAnatomyByGroup) site.mergeAnatomyByGroup(map); // يظهر فوراً للمشتركين في هذه الجلسة
+    try {
+      if (saveAnatomyVideos) { await saveAnatomyVideos(map); setSaveMsg("✓ حُفظت في جدول جوجل — دائمة لكل الأجهزة"); }
+      else setSaveMsg("✓ اعتُمدت وظهرت للمشتركين. لتخزينها دائماً بعد كل نشر، فعّل saveAnatomyVideos (راجع الدليل).");
+    } catch { setSaveMsg("✓ معتمدة في هذه الجلسة — تعذّر الحفظ الدائم في الجدول"); }
+    setSaving(false);
+    setTimeout(() => setSaveMsg(""), 7000);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-amber-400/10 border border-amber-400/30 rounded-2xl p-4 text-sm text-zinc-300 leading-relaxed">
+        🧬 لكل مجموعة عضلية، الصق رابط فيديو تشريح 3D من يوتيوب ثم اضغط <b className="text-amber-300">اختبار</b>.
+        يُعرض الفيديو هنا فوراً — إن اشتغل، اضغط <b className="text-emerald-400">يعمل ✓ اعتمده</b>. هكذا تضمن ألا يرى المشترك رسالة خطأ.
+        <br />المجموعة بلا فيديو تعرض للمشترك العرض التوضيحي الحركي المدمج تلقائياً.
+      </div>
+
+      {VID_GROUPS.map((g) => {
+        const saved = map[g];
+        const isTesting = testing && testing.group === g;
+        return (
+          <div key={g} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+              <div className="flex items-center gap-2">
+                <GroupBadge g={g} />
+                {saved
+                  ? <span className="text-[11px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.5 rounded-full">✓ فيديو معتمد</span>
+                  : <span className="text-[11px] font-bold text-zinc-500 bg-zinc-800 border border-zinc-700 px-2 py-0.5 rounded-full">لا فيديو — عرض توضيحي</span>}
+              </div>
+              {saved && <button onClick={() => removeG(g)} className="text-[11px] font-bold text-rose-400 hover:text-rose-300">إزالة</button>}
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input value={inputs[g]} onChange={(e) => setInputs({ ...inputs, [g]: e.target.value })}
+                placeholder="الصق رابط فيديو يوتيوب هنا" dir="ltr"
+                className="flex-1 bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm placeholder-zinc-600 focus:border-amber-400 focus:outline-none" />
+              <button onClick={() => startTest(g)}
+                className="bg-amber-400/15 text-amber-300 border border-amber-400/30 hover:bg-amber-400 hover:text-zinc-950 font-black text-sm px-5 py-2.5 rounded-xl transition-colors whitespace-nowrap">
+                اختبار
+              </button>
+            </div>
+
+            {isTesting && (
+              <div className="mt-3">
+                <div className="bg-black border border-zinc-700 rounded-xl overflow-hidden" style={{ aspectRatio: "16 / 9" }}>
+                  <iframe src={`https://www.youtube.com/embed/${testing.id}?rel=0&modestbranding=1`}
+                    title={`اختبار ${g}`} style={{ width: "100%", height: "100%", border: 0 }}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+                </div>
+                <p className="text-[11px] text-zinc-500 mt-2">شاهد الفيديو أعلاه — هل يعمل ويظهر التشريح المطلوب؟</p>
+                <div className="flex gap-2 mt-2">
+                  <button onClick={() => confirmWorks(g, testing.id)}
+                    className="bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-sm px-5 py-2 rounded-xl transition-colors">يعمل ✓ اعتمده</button>
+                  <button onClick={markBad}
+                    className="border border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-800 font-bold text-sm px-5 py-2 rounded-xl transition-colors">لا يعمل — جرّب غيره</button>
+                </div>
+              </div>
+            )}
+
+            {saved && !isTesting && (
+              <p className="text-[11px] text-emerald-400/90 mt-2" dir="ltr">✓ {saved}</p>
+            )}
+          </div>
+        );
+      })}
+
+      <div className="flex items-center gap-3 flex-wrap sticky bottom-3">
+        <button onClick={saveAll} disabled={saving}
+          className="bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-zinc-950 font-black px-7 py-3 rounded-xl transition-colors">
+          {saving ? "جارٍ الحفظ..." : "💾 حفظ كل الفيديوهات المعتمدة"}
+        </button>
+        {saveMsg && <span className="text-sm font-bold text-emerald-400">{saveMsg}</span>}
+      </div>
+    </div>
+  );
+}
+
 function AdminPanel({ onBack, coupons, setCoupons }) {
   const site = useSite();
   const [tab, setTab] = useState("overview");
@@ -2678,6 +2822,7 @@ function AdminPanel({ onBack, coupons, setCoupons }) {
   const tabs = [
     { id: "overview", l: "نظرة عامة", ic: TrendingUp }, { id: "activate", l: "طلبات التفعيل", ic: UserPlus }, { id: "subs", l: "المشتركون", ic: Users },
     { id: "coupons", l: "الكوبونات", ic: Ticket }, { id: "coaches", l: "المدربون", ic: Award },
+    { id: "videos", l: "فيديوهات 3D", ic: PlayCircle },
     { id: "affiliate", l: "الإحالات", ic: Gift }, { id: "auto", l: "الأتمتة", ic: Bot },
   ];
 
@@ -2936,7 +3081,9 @@ function AdminPanel({ onBack, coupons, setCoupons }) {
             </div>
           </>
         )}
-      </main>
+              {tab === "videos" && <VideoAdmin />}
+
+        </main>
     </div>
   );
 }
@@ -3097,6 +3244,8 @@ export default function App() {
   const [profile, setProfile] = useState(null);
   const [plan, setPlan] = useState(null);
   const [site, setSite] = useState({ connected: false });
+  // دمج فيديوهات التشريح المعتمدة من لوحة الإدارة فوراً في السياق (تظهر للمشترك بلا انتظار)
+  const mergeAnatomyByGroup = React.useCallback((m) => setSite((s) => ({ ...s, anatomyByGroup: { ...(s.anatomyByGroup || {}), ...m } })), []);
   const [ready, setReady] = useState(false); // انتظر استعادة الجلسة قبل العرض
   // الكوبونات مشتركة بين لوحة الإدارة وبوابة الدفع
   const [coupons, setCoupons] = useState([
@@ -3147,7 +3296,7 @@ export default function App() {
   if (!ready) return <div className="min-h-screen bg-zinc-950" />;
 
   return (
-    <SiteData.Provider value={site}>
+    <SiteData.Provider value={{ ...site, mergeAnatomyByGroup }}>
     <div dir="rtl" className="min-h-screen bg-zinc-950 text-white" style={{ fontFamily: "'Cairo', 'Segoe UI', sans-serif" }}>
       <style>{AI_CSS}</style>
       {view === "landing" && <Landing onStart={() => setView("onboarding")} onLibrary={() => setView("library")} onLogin={() => setView("login")}
