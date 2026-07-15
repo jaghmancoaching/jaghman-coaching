@@ -383,6 +383,18 @@ function generateProgram(profile) {
    ═══════════════════════════════════════════════════════════════ */
 
 const Modal = ({ open, onClose, children, wide }) => {
+  // زر الرجوع في الجوال يغلق النافذة بدل الخروج من التطبيق
+  useEffect(() => {
+    if (!open) return;
+    window.history.pushState({ modal: true }, "");
+    const onPop = () => { if (onClose) onClose(); };
+    window.addEventListener("popstate", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      // إن أُغلقت النافذة بزر X (لا بالرجوع)، نظّف حالة السجل المضافة
+      if (window.history.state && window.history.state.modal) window.history.back();
+    };
+  }, [open]);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -986,6 +998,8 @@ const AI_CSS = `
 @keyframes aiPulse{0%,100%{opacity:.3;transform:scale(.9)}50%{opacity:1;transform:scale(1.12)}}
 @keyframes aiProg{0%{width:0%}100%{width:100%}}
 @keyframes aiGlow{0%,100%{filter:drop-shadow(0 0 4px rgba(239,68,68,.5))}50%{filter:drop-shadow(0 0 12px rgba(239,68,68,1))}}
+@keyframes aiBreath{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.5px)}}
+@keyframes aiFadeInfo{0%,45%{opacity:1}55%,95%{opacity:.35}100%{opacity:1}}
 @keyframes aiFadeA{0%,42%{opacity:1}52%,90%{opacity:0}100%{opacity:1}}
 @keyframes aiFadeB{0%,42%{opacity:0}52%,90%{opacity:1}100%{opacity:0}}
 @keyframes aiChev{0%,100%{transform:translateY(0);opacity:.95}50%{transform:translateY(11px);opacity:.3}}
@@ -1125,13 +1139,25 @@ function ExerciseAnimation({ pattern, paused, speed }) {
   });
   const dur = 2.8 / speed;
   const playState = paused ? "paused" : "running";
-  const S = { stroke: "#f4f4f5", strokeWidth: 6, strokeLinecap: "round", strokeLinejoin: "round", fill: "none" };
-  const B = { stroke: "url(#aiGoldGrad)", strokeWidth: 6.5, strokeLinecap: "round", fill: "none" };
-  const Red = ({ x, y, r = 11 }) => (
-    <g className="aiHotG" style={{ animationPlayState: paused ? "paused" : "running" }}>
-      <g className="aiHot" style={{ animationPlayState: paused ? "paused" : "running" }}>
+  // أطراف بشرية مصمتة: مفاصل مستديرة وسماكة واقعية (لا خطوط عصوية)
+  const LIMB = { stroke: "#e7e7ea", strokeLinecap: "round", strokeLinejoin: "round", fill: "none" };
+  const S = { ...LIMB, strokeWidth: 11 };       // أطراف عريضة (فخذ/جذع)
+  const S2 = { ...LIMB, strokeWidth: 8.5 };      // ساعد/ساق
+  const B = { stroke: "url(#aiGoldGrad)", strokeWidth: 8, strokeLinecap: "round", fill: "none" }; // معدّات ذهبية
+  // رأس بشري مع ملامح
+  const Head = ({ x, y, r = 11 }) => (
+    <g>
+      <circle cx={x} cy={y} r={r} fill="#f4f4f5" stroke="#a1a1aa" strokeWidth="1" />
+      <circle cx={x} cy={y} r={r} fill="url(#aiHeadShade)" />
+    </g>
+  );
+  // عضلة مستهدفة متوهّجة (نبض أحمر واضح)
+  const Red = ({ x, y, r = 12 }) => (
+    <g className="aiHotG" style={{ animationPlayState: playState }}>
+      <g className="aiHot" style={{ animationPlayState: playState }}>
         <circle cx={x} cy={y} r={r} fill="url(#aiRedGrad)" />
-        <circle cx={x} cy={y} r={4} fill="#ef4444" />
+        <ellipse cx={x} cy={y} rx={r*0.5} ry={r*0.62} fill="#ef4444" opacity="0.92" />
+        <ellipse cx={x-2} cy={y-2} rx={r*0.18} ry={r*0.24} fill="#fca5a5" opacity="0.9" />
       </g>
     </g>
   );
@@ -1139,48 +1165,73 @@ function ExerciseAnimation({ pattern, paused, speed }) {
   const bodies = {
     pressH: (
       <>
-        <rect x="42" y="104" width="100" height="7" rx="3" fill="#3f3f46" />
-        <line x1="52" y1="111" x2="52" y2="127" stroke="#3f3f46" strokeWidth="5" />
-        <line x1="132" y1="111" x2="132" y2="127" stroke="#3f3f46" strokeWidth="5" />
-        <circle cx="52" cy="96" r="9" {...S} />
-        <line x1="63" y1="99" x2="122" y2="99" {...S} />
-        <path d="M122 99 L138 103 L146 128" {...S} />
-        <line x1="78" y1="99" x2="78" y2="60" {...S} style={anim("aiScaleY", { "--s": 0.55 }, "78px 99px")} />
-        <g style={anim("aiSlideY", { "--d": "20px" })}>
-          <circle cx="78" cy="58" r="8" {...B} />
-          <circle cx="78" cy="58" r="2.5" fill="#d4af6e" />
+        {/* بنش */}
+        <rect x="40" y="106" width="104" height="9" rx="4" fill="#52525b" />
+        <rect x="46" y="115" width="7" height="16" rx="2" fill="#3f3f46" />
+        <rect x="131" y="115" width="7" height="16" rx="2" fill="#3f3f46" />
+        {/* جسم مستلقٍ: جذع مصمت + رأس */}
+        <path d="M62 100 L120 100" {...S} strokeWidth="17" stroke="url(#aiTorso)" />
+        <Head x={54} y={100} r={10} />
+        {/* أرجل مثنية */}
+        <path d="M120 100 L138 104 L138 118" {...S2} />
+        {/* ذراعان يدفعان البار للأعلى ثم نزول */}
+        <g style={anim("aiScaleY", { "--s": 0.6 }, "96px 100px")}>
+          <path d="M96 100 L96 66" {...S} />
         </g>
-        <Red x={92} y={94} />
+        <g style={anim("aiSlideY", { "--d": "20px" })}>
+          <rect x="66" y="60" width="60" height="7" rx="3.5" fill="url(#aiGoldGrad)" />
+          <circle cx="70" cy="63.5" r="7" fill="url(#aiGoldGrad)" />
+          <circle cx="122" cy="63.5" r="7" fill="url(#aiGoldGrad)" />
+        </g>
+        <Red x={92} y={96} r={11} />
       </>
     ),
     pressV: (
       <>
-        <line x1="70" y1="132" x2="130" y2="132" stroke="#3f3f46" strokeWidth="4" />
-        <line x1="100" y1="105" x2="90" y2="131" {...S} />
-        <line x1="100" y1="105" x2="110" y2="131" {...S} />
-        <line x1="100" y1="105" x2="100" y2="64" {...S} />
-        <circle cx="100" cy="53" r="9" {...S} />
-        <line x1="100" y1="68" x2="100" y2="34" {...S} style={anim("aiScaleY", { "--s": 0.35 }, "100px 68px")} />
-        <g style={anim("aiSlideY", { "--d": "24px" })}>
-          <line x1="78" y1="33" x2="122" y2="33" {...B} />
+        <line x1="70" y1="133" x2="130" y2="133" stroke="#3f3f46" strokeWidth="4" />
+        <path d="M100 132 L90 132" {...S2} />
+        <path d="M100 106 L92 132" {...S} />
+        <path d="M100 106 L108 132" {...S} />
+        <path d="M100 106 L100 62" {...S} strokeWidth="16" stroke="url(#aiTorso)" />
+        <Head x={100} y={51} r={10} />
+        {/* ذراعان يرفعان البار فوق الرأس */}
+        <g style={anim("aiScaleY", { "--s": 0.42 }, "88px 66px")}>
+          <path d="M88 66 L88 36" {...S2} />
         </g>
-        <Red x={100} y={64} r={10} />
+        <g style={anim("aiScaleY", { "--s": 0.42 }, "112px 66px")}>
+          <path d="M112 66 L112 36" {...S2} />
+        </g>
+        <g style={anim("aiSlideY", { "--d": "24px" })}>
+          <rect x="76" y="33" width="48" height="6.5" rx="3" fill="url(#aiGoldGrad)" />
+          <circle cx="79" cy="36" r="6" fill="url(#aiGoldGrad)" />
+          <circle cx="121" cy="36" r="6" fill="url(#aiGoldGrad)" />
+        </g>
+        <Red x={90} y={62} r={9} />
+        <Red x={110} y={62} r={9} />
       </>
     ),
     squat: (
       <>
-        <line x1="60" y1="132" x2="140" y2="132" stroke="#3f3f46" strokeWidth="4" />
-        <g style={anim("aiScaleY", { "--s": 0.8 }, "100px 132px")}>
-          <path d="M100 100 L116 114 L108 131" {...S} />
-          <path d="M100 100 L90 118 L97 131" {...S} />
-          <Red x={108} y={110} />
-        </g>
-        <g style={anim("aiSlideY", { "--d": "18px" })}>
-          <line x1="100" y1="100" x2="100" y2="60" {...S} />
-          <circle cx="100" cy="50" r="9" {...S} />
-          <line x1="80" y1="66" x2="120" y2="66" {...B} />
-          <line x1="100" y1="74" x2="86" y2="66" {...S} strokeWidth={4} />
-          <line x1="100" y1="74" x2="114" y2="66" {...S} strokeWidth={4} />
+        <line x1="58" y1="133" x2="142" y2="133" stroke="#3f3f46" strokeWidth="4" />
+        {/* الجسم كله ينزل ويصعد كوحدة واحدة */}
+        <g style={anim("aiSlideY", { "--d": "16px" })}>
+          {/* أرجل تنثني عند النزول */}
+          <g style={anim("aiScaleY", { "--s": 0.82 }, "100px 132px")}>
+            <path d="M100 102 L114 116 L110 132" {...S} />
+            <path d="M100 102 L86 116 L90 132" {...S} />
+          </g>
+          {/* جذع مصمت */}
+          <path d="M100 102 L100 62" {...S} strokeWidth="16" stroke="url(#aiTorso)" />
+          <Head x={100} y={52} r={10} />
+          {/* بار على الكتفين */}
+          <rect x="76" y="62" width="48" height="6.5" rx="3" fill="url(#aiGoldGrad)" />
+          <circle cx="79" cy="65" r="6.5" fill="url(#aiGoldGrad)" />
+          <circle cx="121" cy="65" r="6.5" fill="url(#aiGoldGrad)" />
+          {/* ذراعان يمسكان البار */}
+          <path d="M100 76 L84 66" {...S2} />
+          <path d="M100 76 L116 66" {...S2} />
+          <Red x={112} y={116} r={10} />
+          <Red x={88} y={116} r={10} />
         </g>
       </>
     ),
@@ -1200,16 +1251,18 @@ function ExerciseAnimation({ pattern, paused, speed }) {
     ),
     row: (
       <>
-        <line x1="70" y1="131" x2="155" y2="131" stroke="#3f3f46" strokeWidth="4" />
-        <line x1="100" y1="102" x2="94" y2="130" {...S} />
-        <line x1="100" y1="102" x2="108" y2="130" {...S} />
-        <line x1="100" y1="102" x2="136" y2="76" {...S} />
-        <circle cx="144" cy="70" r="8.5" {...S} />
-        <line x1="122" y1="88" x2="122" y2="112" {...S} strokeWidth={4} style={anim("aiScaleY", { "--s": 0.45 }, "122px 88px")} />
-        <g style={anim("aiSlideY", { "--d": "-13px" })}>
-          <circle cx="122" cy="116" r="7" {...B} />
+        <line x1="66" y1="132" x2="150" y2="132" stroke="#3f3f46" strokeWidth="4" />
+        <path d="M96 104 L90 131" {...S} />
+        <path d="M96 104 L104 131" {...S} />
+        {/* جذع منحنٍ للأمام (وضع التجديف) */}
+        <path d="M96 104 L134 80" {...S} strokeWidth="16" stroke="url(#aiTorso)" />
+        <Head x={142} y={74} r={10} />
+        {/* ذراع يسحب الوزن للأعلى/الأسفل */}
+        <g style={anim("aiSlideY", { "--d": "-14px" })}>
+          <path d="M120 92 L120 114" {...S2} />
+          <circle cx="120" cy="118" r="7" fill="url(#aiGoldGrad)" />
         </g>
-        <Red x={116} y={84} />
+        <Red x={116} y={86} r={11} />
       </>
     ),
     pulldown: (
@@ -1230,33 +1283,35 @@ function ExerciseAnimation({ pattern, paused, speed }) {
     ),
     curl: (
       <>
-        <line x1="80" y1="131" x2="120" y2="131" stroke="#3f3f46" strokeWidth="4" />
-        <line x1="100" y1="102" x2="93" y2="130" {...S} />
-        <line x1="100" y1="102" x2="107" y2="130" {...S} />
-        <line x1="100" y1="102" x2="100" y2="60" {...S} />
-        <circle cx="100" cy="50" r="9" {...S} />
-        <line x1="103" y1="66" x2="103" y2="86" {...S} strokeWidth={4} />
-        <g style={anim("aiRot", { "--r2": "-110deg" }, "103px 86px")}>
-          <line x1="103" y1="86" x2="124" y2="90" {...S} strokeWidth={4} />
-          <circle cx="127" cy="90" r="6" {...B} />
+        <line x1="80" y1="132" x2="120" y2="132" stroke="#3f3f46" strokeWidth="4" />
+        <path d="M100 104 L93 131" {...S} />
+        <path d="M100 104 L107 131" {...S} />
+        <path d="M100 104 L100 60" {...S} strokeWidth="16" stroke="url(#aiTorso)" />
+        <Head x={100} y={50} r={10} />
+        {/* عضد ثابت + ساعد يرتفع (انقباض بايسبس) */}
+        <path d="M104 68 L104 88" {...S2} />
+        <g style={anim("aiRot", { "--r1": "0deg", "--r2": "-115deg" }, "104px 88px")}>
+          <path d="M104 88 L126 92" {...S2} />
+          <circle cx="130" cy="92" r="6.5" fill="url(#aiGoldGrad)" />
         </g>
-        <Red x={103} y={74} r={9} />
+        <Red x={105} y={76} r={9} />
       </>
     ),
     pushdown: (
       <>
-        <line x1="128" y1="8" x2="128" y2="56" stroke="#52525b" strokeWidth="2.5" />
-        <line x1="80" y1="131" x2="120" y2="131" stroke="#3f3f46" strokeWidth="4" />
-        <line x1="100" y1="102" x2="93" y2="130" {...S} />
-        <line x1="100" y1="102" x2="107" y2="130" {...S} />
-        <line x1="100" y1="102" x2="100" y2="60" {...S} />
-        <circle cx="100" cy="50" r="9" {...S} />
-        <line x1="103" y1="66" x2="103" y2="82" {...S} strokeWidth={4} />
-        <g style={anim("aiRot", { "--r1": "-55deg", "--r2": "0deg" }, "103px 82px")}>
-          <line x1="103" y1="82" x2="126" y2="86" {...S} strokeWidth={4} />
-          <line x1="122" y1="80" x2="130" y2="92" {...B} strokeWidth={4} />
+        <line x1="126" y1="8" x2="126" y2="54" stroke="#52525b" strokeWidth="2.5" />
+        <line x1="80" y1="132" x2="120" y2="132" stroke="#3f3f46" strokeWidth="4" />
+        <path d="M100 104 L93 131" {...S} />
+        <path d="M100 104 L107 131" {...S} />
+        <path d="M100 104 L100 60" {...S} strokeWidth="16" stroke="url(#aiTorso)" />
+        <Head x={100} y={50} r={10} />
+        {/* عضد ثابت + ساعد يدفع للأسفل (انقباض ترايسبس) */}
+        <path d="M104 68 L108 84" {...S2} />
+        <g style={anim("aiRot", { "--r1": "-58deg", "--r2": "2deg" }, "108px 84px")}>
+          <path d="M108 84 L126 92" {...S2} />
+          <rect x="122" y="86" width="8" height="12" rx="3" fill="url(#aiGoldGrad)" />
         </g>
-        <Red x={106} y={74} r={8} />
+        <Red x={107} y={76} r={9} />
       </>
     ),
     latRaise: (
@@ -1378,6 +1433,15 @@ function ExerciseAnimation({ pattern, paused, speed }) {
           <stop offset="55%" stopColor="#d4af6e" />
           <stop offset="100%" stopColor="#a8843f" />
         </linearGradient>
+        <radialGradient id="aiHeadShade" cx="0.38" cy="0.35" r="0.75">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.9" />
+          <stop offset="55%" stopColor="#d4d4d8" stopOpacity="0.15" />
+          <stop offset="100%" stopColor="#52525b" stopOpacity="0.55" />
+        </radialGradient>
+        <linearGradient id="aiTorso" x1="0" y1="0" x2="0.6" y2="1">
+          <stop offset="0%" stopColor="#fafafa" />
+          <stop offset="100%" stopColor="#c4c4c9" />
+        </linearGradient>
         <filter id="aiSoft" x="-25%" y="-25%" width="150%" height="150%">
           <feDropShadow dx="0" dy="1.6" stdDeviation="1.7" floodColor="#000000" floodOpacity="0.55" />
         </filter>
@@ -1458,23 +1522,21 @@ function MuscleMap({ group }) {
    ═══════════════════════════════════════════════════════════════ */
 
 function ExerciseModal({ ex, onClose, onSwap, equipment }) {
-  const [vtab, setVtab] = useState("anatomy");
+  const [vtab, setVtab] = useState("motion");
   const site = useSite();
+  // كل الـ hooks قبل أي return — قاعدة React. نحسب المصدر بأمان حتى لو ex غير موجود.
+  const _anatomyId = ex ? ((site.anatomy && site.anatomy[ex.name]) || ANATOMY_YT[ex.name] || (site.anatomyByGroup && site.anatomyByGroup[ex.group]) || ANATOMY_BY_GROUP[ex.group] || null) : null;
+  // العرض التوضيحي المدمج هو الافتراضي دائماً (يظهر فوراً بلا انتظار تحميل يوتيوب)
+  useEffect(() => { setVtab("motion"); }, [ex]);
 
   if (!ex) return null;
   const en = EN_OF[ex.name] || ex.name;
   /* الفيديو يُعرض مضمّناً داخل الموقع من مصادر مؤكّدة فقط (معتمدة من لوحة الإدارة/الكود).
      المجموعة التي لا فيديو لها بعد تعرض العرض التوضيحي الحركي المدمج — بلا رسالة خطأ. */
-  // فيديو التشريح 3D: تمرين محدّد (جوجل ثم كود) ← احتياطي المجموعة (جوجل ثم كود).
-  // كل هذه المصادر مؤكّدة يدوياً من لوحة الإدارة، فلا يظهر "غير متوفر" أبداً.
-  const anatomyId = (site.anatomy && site.anatomy[ex.name])
-    || ANATOMY_YT[ex.name]
-    || (site.anatomyByGroup && site.anatomyByGroup[ex.group])
-    || ANATOMY_BY_GROUP[ex.group]
-    || null;
+  // فيديو التشريح 3D — حُسب مبكراً (_anatomyId) قبل أي return لاحترام قواعد hooks
+  const anatomyId = _anatomyId;
   const ytId = (site.videos && site.videos[ex.name]) || JEFF_YT[ex.name] || null;
   const anatomySrc = anatomyId ? `https://www.youtube.com/embed/${anatomyId}?rel=0&modestbranding=1&playsinline=1` : null;
-  useEffect(() => { setVtab(anatomyId ? "anatomy" : "motion"); }, [ex, anatomyId]);
   const realSrc = ytId ? `https://www.youtube.com/embed/${ytId}?rel=0&modestbranding=1&playsinline=1` : null;
   return (
     <Modal open={!!ex} onClose={onClose} wide>
@@ -1512,16 +1574,16 @@ function ExerciseModal({ ex, onClose, onSwap, equipment }) {
               </div>
             )}
             <div className="flex gap-1.5 mt-2 flex-wrap">
+              <button onClick={() => setVtab("motion")}
+                className={`text-[11px] font-black px-3 py-1.5 rounded-lg border transition-colors ${vtab === "motion" ? "bg-amber-400 border-amber-400 text-zinc-950" : "border-zinc-700 text-zinc-400 hover:border-amber-400/50"}`}>
+                🎯 عرض توضيحي
+              </button>
               {anatomySrc && (
                 <button onClick={() => setVtab("anatomy")}
                   className={`text-[11px] font-black px-3 py-1.5 rounded-lg border transition-colors ${vtab === "anatomy" ? "bg-amber-400 border-amber-400 text-zinc-950" : "border-zinc-700 text-zinc-400 hover:border-amber-400/50"}`}>
                   🧬 تشريح عضلي 3D
                 </button>
               )}
-              <button onClick={() => setVtab("motion")}
-                className={`text-[11px] font-black px-3 py-1.5 rounded-lg border transition-colors ${vtab === "motion" ? "bg-amber-400 border-amber-400 text-zinc-950" : "border-zinc-700 text-zinc-400 hover:border-amber-400/50"}`}>
-                🤖 توضيح حركي
-              </button>
               {realSrc && (
                 <button onClick={() => setVtab("real")}
                   className={`text-[11px] font-black px-3 py-1.5 rounded-lg border transition-colors ${vtab === "real" ? "bg-amber-400 border-amber-400 text-zinc-950" : "border-zinc-700 text-zinc-400 hover:border-amber-400/50"}`}>
@@ -3220,9 +3282,8 @@ function AdminPanel({ onBack, coupons, setCoupons }) {
             </div>
           </>
         )}
-              {tab === "videos" && <VideoAdmin />}
-
-        </main>
+        {tab === "videos" && <VideoAdmin />}
+      </main>
     </div>
   );
 }
@@ -3448,7 +3509,34 @@ function Dashboard({ profile, plan, onUpgrade, onSaveProfile }) {
    13. التطبيق الرئيسي — إدارة المسارات
    ═══════════════════════════════════════════════════════════════ */
 
-export default function App() {
+class ErrorBoundary extends React.Component {
+  constructor(p) { super(p); this.state = { hasError: false }; }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(e) { try { console.error("App error:", e); } catch {} }
+  reset = () => this.setState({ hasError: false });
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div dir="rtl" className="min-h-screen bg-zinc-950 text-white flex items-center justify-center p-6" style={{ fontFamily: "'Cairo', sans-serif" }}>
+          <div className="max-w-sm text-center bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
+            <div className="bg-amber-400/15 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle size={28} className="text-amber-300" />
+            </div>
+            <h2 className="font-black text-xl mb-2">حدث خطأ بسيط</h2>
+            <p className="text-zinc-400 text-sm mb-5">تعذّر عرض هذا الجزء. جرّب العودة للصفحة الرئيسية — بياناتك محفوظة.</p>
+            <button onClick={() => { this.reset(); try { window.location.hash = ""; window.location.reload(); } catch {} }}
+              className="bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black px-6 py-3 rounded-xl transition-colors">
+              العودة للرئيسية
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function App() {
   const [view, setView] = useState("landing");
   const [adminUnlocked, setAdminUnlocked] = useState(false);
   const [profile, setProfile] = useState(null);
@@ -3560,4 +3648,8 @@ export default function App() {
     </div>
     </SiteData.Provider>
   );
+}
+
+export default function AppWithBoundary() {
+  return <ErrorBoundary><App /></ErrorBoundary>;
 }
