@@ -383,18 +383,19 @@ function generateProgram(profile) {
    ═══════════════════════════════════════════════════════════════ */
 
 const Modal = ({ open, onClose, children, wide }) => {
-  // زر الرجوع في الجوال يغلق النافذة بدل الخروج من التطبيق
+  // زر الرجوع في الجوال يغلق النافذة بدل الخروج من التطبيق (بأمان تام)
   useEffect(() => {
     if (!open) return;
-    window.history.pushState({ modal: true }, "");
-    const onPop = () => { if (onClose) onClose(); };
+    let popped = false;
+    try { window.history.pushState({ modal: true }, ""); } catch {}
+    const onPop = () => { popped = true; if (onClose) onClose(); };
     window.addEventListener("popstate", onPop);
     return () => {
       window.removeEventListener("popstate", onPop);
-      // إن أُغلقت النافذة بزر X (لا بالرجوع)، نظّف حالة السجل المضافة
-      if (window.history.state && window.history.state.modal) window.history.back();
+      // إن أُغلقت بزر X (لا بالرجوع)، أزل حالة السجل المضافة — داخل try لتفادي أي خطأ
+      if (!popped) { try { window.history.back(); } catch {} }
     };
-  }, [open]);
+  }, [open, onClose]);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -3510,10 +3511,10 @@ function Dashboard({ profile, plan, onUpgrade, onSaveProfile }) {
    ═══════════════════════════════════════════════════════════════ */
 
 class ErrorBoundary extends React.Component {
-  constructor(p) { super(p); this.state = { hasError: false }; }
-  static getDerivedStateFromError() { return { hasError: true }; }
-  componentDidCatch(e) { try { console.error("App error:", e); } catch {} }
-  reset = () => this.setState({ hasError: false });
+  constructor(p) { super(p); this.state = { hasError: false, msg: "" }; }
+  static getDerivedStateFromError(e) { return { hasError: true, msg: (e && (e.message || String(e))) || "" }; }
+  componentDidCatch(e, info) { try { console.error("App error:", e, info); } catch {} }
+  reset = () => this.setState({ hasError: false, msg: "" });
   render() {
     if (this.state.hasError) {
       return (
@@ -3523,7 +3524,8 @@ class ErrorBoundary extends React.Component {
               <AlertTriangle size={28} className="text-amber-300" />
             </div>
             <h2 className="font-black text-xl mb-2">حدث خطأ بسيط</h2>
-            <p className="text-zinc-400 text-sm mb-5">تعذّر عرض هذا الجزء. جرّب العودة للصفحة الرئيسية — بياناتك محفوظة.</p>
+            <p className="text-zinc-400 text-sm mb-3">تعذّر عرض هذا الجزء. جرّب العودة للصفحة الرئيسية — بياناتك محفوظة.</p>
+            {this.state.msg && <p dir="ltr" className="text-[10px] text-rose-300/80 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2 mb-4 break-words text-left font-mono">{this.state.msg}</p>}
             <button onClick={() => { this.reset(); try { window.location.hash = ""; window.location.reload(); } catch {} }}
               className="bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black px-6 py-3 rounded-xl transition-colors">
               العودة للرئيسية
