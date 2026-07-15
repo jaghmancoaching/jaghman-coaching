@@ -1001,6 +1001,22 @@ const AI_CSS = `
 @keyframes aiGlow{0%,100%{filter:drop-shadow(0 0 4px rgba(239,68,68,.5))}50%{filter:drop-shadow(0 0 12px rgba(239,68,68,1))}}
 @keyframes aiBreath{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.5px)}}
 @keyframes aiFadeInfo{0%,45%{opacity:1}55%,95%{opacity:.35}100%{opacity:1}}
+@keyframes aiPressArm{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.5)}}
+@keyframes aiPressBar{0%,100%{transform:translateY(0)}50%{transform:translateY(-24px)}}
+@keyframes aiSquatBody{0%,100%{transform:translateY(0)}50%{transform:translateY(20px)}}
+@keyframes aiSquatLeg{0%,100%{transform:scaleY(1)}50%{transform:scaleY(0.8)}}
+@keyframes aiCurlArm{0%,100%{transform:rotate(0deg)}50%{transform:rotate(-118deg)}}
+@keyframes aiRowArm{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}
+@keyframes aiPushArm{0%,100%{transform:rotate(-52deg)}50%{transform:rotate(6deg)}}
+@keyframes aiPullArm{0%,100%{transform:scaleY(1) translateY(0)}50%{transform:scaleY(0.7) translateY(6px)}}
+@keyframes aiPullBar{0%,100%{transform:translateY(0)}50%{transform:translateY(26px)}}
+@keyframes aiHinge{0%,100%{transform:rotate(0deg)}50%{transform:rotate(62deg)}}
+@keyframes aiRaiseR{0%,100%{transform:rotate(38deg)}50%{transform:rotate(-38deg)}}
+@keyframes aiRaiseL{0%,100%{transform:rotate(-38deg)}50%{transform:rotate(38deg)}}
+@keyframes aiFlyR{0%,100%{transform:rotate(-42deg)}50%{transform:rotate(0deg)}}
+@keyframes aiLegRaise{0%,100%{transform:rotate(0deg)}50%{transform:rotate(-82deg)}}
+@keyframes aiCalf{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes aiLegCurl{0%,100%{transform:rotate(0deg)}50%{transform:rotate(-42deg)}}
 @keyframes aiFadeA{0%,42%{opacity:1}52%,90%{opacity:0}100%{opacity:1}}
 @keyframes aiFadeB{0%,42%{opacity:0}52%,90%{opacity:1}100%{opacity:0}}
 @keyframes aiChev{0%,100%{transform:translateY(0);opacity:.95}50%{transform:translateY(11px);opacity:.3}}
@@ -1128,346 +1144,308 @@ const GROUP_PATTERN = { "صدر": "pressH", "ظهر": "row", "أكتاف": "pres
 
 // العرض الحركي المولّد للتمرين
 function ExerciseAnimation({ pattern, paused, speed }) {
-  const anim = (name, vars, origin) => ({
-    transformBox: "view-box",
-    transformOrigin: origin,
-    animationName: name,
-    animationDuration: `${2.8 / speed}s`,
-    animationTimingFunction: "cubic-bezier(.37,0,.63,1)",
-    animationIterationCount: "infinite",
-    animationPlayState: paused ? "paused" : "running",
-    ...vars,
-  });
   const dur = 2.8 / speed;
   const playState = paused ? "paused" : "running";
-  // أطراف بشرية مصمتة: مفاصل مستديرة وسماكة واقعية (لا خطوط عصوية)
-  const LIMB = { stroke: "#e7e7ea", strokeLinecap: "round", strokeLinejoin: "round", fill: "none" };
-  const S = { ...LIMB, strokeWidth: 11 };       // أطراف عريضة (فخذ/جذع)
-  const S2 = { ...LIMB, strokeWidth: 8.5 };      // ساعد/ساق
-  const B = { stroke: "url(#aiGoldGrad)", strokeWidth: 8, strokeLinecap: "round", fill: "none" }; // معدّات ذهبية
-  // رأس بشري مع ملامح
-  const Head = ({ x, y, r = 11 }) => (
-    <g>
-      <circle cx={x} cy={y} r={r} fill="#f4f4f5" stroke="#a1a1aa" strokeWidth="1" />
-      <circle cx={x} cy={y} r={r} fill="url(#aiHeadShade)" />
-    </g>
+  const anim = (name, vars, origin) => ({
+    transformBox: "view-box", transformOrigin: origin, animationName: name,
+    animationDuration: `${dur}s`, animationTimingFunction: "cubic-bezier(.37,0,.63,1)",
+    animationIterationCount: "infinite", animationPlayState: playState, ...vars,
+  });
+
+  // ملامح الشخصية: أطراف ممتلئة بمفاصل واضحة
+  const SKIN = "#d9dade";
+  const limb = (w) => ({ stroke: SKIN, strokeWidth: w, strokeLinecap: "round", strokeLinejoin: "round", fill: "none" });
+  const Torso = limb(20); const Upper = limb(11); const Fore = limb(9); const Thigh = limb(13); const Shin = limb(11);
+  const gold = { fill: "url(#aiGoldGrad)" };
+  const Joint = ({ x, y, r = 4.5 }) => <circle cx={x} cy={y} r={r} fill="#a1a1aa" />;
+  const Head = ({ x, y, r = 12 }) => (
+    <g><circle cx={x} cy={y} r={r} fill="#eaeaec" stroke="#a1a1aa" strokeWidth="1.2" /><circle cx={x} cy={y} r={r} fill="url(#aiHeadShade)" /></g>
   );
-  // عضلة مستهدفة متوهّجة (نبض أحمر واضح)
-  const Red = ({ x, y, r = 12 }) => (
+  // عضلة عاملة متوهّجة
+  const Red = ({ x, y, r = 13 }) => (
     <g className="aiHotG" style={{ animationPlayState: playState }}>
       <g className="aiHot" style={{ animationPlayState: playState }}>
         <circle cx={x} cy={y} r={r} fill="url(#aiRedGrad)" />
-        <ellipse cx={x} cy={y} rx={r*0.5} ry={r*0.62} fill="#ef4444" opacity="0.92" />
-        <ellipse cx={x-2} cy={y-2} rx={r*0.18} ry={r*0.24} fill="#fca5a5" opacity="0.9" />
+        <ellipse cx={x} cy={y} rx={r * 0.46} ry={r * 0.6} fill="#ef4444" opacity="0.9" />
       </g>
     </g>
   );
+  // مسار الحركة: قوس منقّط + سهم يتحرك ذهاباً وإياباً على المسار
+  const Path = ({ d, ballFrom, ballTo, label }) => (
+    <>
+      <path d={d} stroke="#fbbf24" strokeWidth="2" strokeDasharray="3 4" fill="none" opacity="0.55" strokeLinecap="round" />
+      <circle r="4.5" fill="#fbbf24">
+        <animate attributeName="cx" values={`${ballFrom[0]};${ballTo[0]};${ballFrom[0]}`} dur={`${dur}s`} repeatCount="indefinite" />
+        <animate attributeName="cy" values={`${ballFrom[1]};${ballTo[1]};${ballFrom[1]}`} dur={`${dur}s`} repeatCount="indefinite" />
+      </circle>
+    </>
+  );
 
-  const bodies = {
-    pressH: (
+  // كل تمرين: شخصية مفصلية + مسار حركة + عضلة متوهّجة + تسمية
+  const scenes = {
+    // ── ضغط صدر أفقي (بنش) ──
+    pressH: { muscle: "الصدر", note: "ادفع البار لأعلى ثم أنزله ببطء للصدر", body: (
       <>
-        {/* بنش */}
-        <rect x="40" y="106" width="104" height="9" rx="4" fill="#52525b" />
-        <rect x="46" y="115" width="7" height="16" rx="2" fill="#3f3f46" />
-        <rect x="131" y="115" width="7" height="16" rx="2" fill="#3f3f46" />
-        {/* جسم مستلقٍ: جذع مصمت + رأس */}
-        <path d="M62 100 L120 100" {...S} strokeWidth="17" stroke="url(#aiTorso)" />
-        <Head x={54} y={100} r={10} />
+        <rect x="34" y="108" width="112" height="9" rx="4" fill="#52525b" />
+        <rect x="42" y="117" width="7" height="15" rx="2" fill="#3f3f46" /><rect x="131" y="117" width="7" height="15" rx="2" fill="#3f3f46" />
+        {/* جسم مستلقٍ */}
+        <line x1="60" y1="102" x2="118" y2="102" {...Torso} stroke="url(#aiTorso)" />
+        <Head x={52} y={102} r={11} />
         {/* أرجل مثنية */}
-        <path d="M120 100 L138 104 L138 118" {...S2} />
-        {/* ذراعان يدفعان البار للأعلى ثم نزول */}
-        <g style={anim("aiScaleY", { "--s": 0.6 }, "96px 100px")}>
-          <path d="M96 100 L96 66" {...S} />
+        <line x1="118" y1="102" x2="132" y2="102" {...Thigh} /><line x1="132" y1="102" x2="136" y2="116" {...Shin} /><Joint x={132} y={102} />
+        {/* ذراع تدفع: عضد ثابت + ساعد يمتد لأعلى وينزل */}
+        <g style={anim("aiPressArm", {}, "92px 102px")}>
+          <line x1="92" y1="102" x2="92" y2="80" {...Upper} />
+          <line x1="92" y1="80" x2="92" y2="60" {...Fore} />
+          <Joint x={92} y={80} />
+          <rect x="70" y="55" width="44" height="7" rx="3.5" {...gold} />
+          <circle cx="72" cy="58.5" r="7" {...gold} /><circle cx="112" cy="58.5" r="7" {...gold} />
         </g>
-        <g style={anim("aiSlideY", { "--d": "20px" })}>
-          <rect x="66" y="60" width="60" height="7" rx="3.5" fill="url(#aiGoldGrad)" />
-          <circle cx="70" cy="63.5" r="7" fill="url(#aiGoldGrad)" />
-          <circle cx="122" cy="63.5" r="7" fill="url(#aiGoldGrad)" />
-        </g>
-        <Red x={92} y={96} r={11} />
+        <Red x={86} y={97} r={11} />
+        <Path d="M92 62 L92 92" ballFrom={[92,62]} ballTo={[92,90]} />
       </>
-    ),
-    pressV: (
+    )},
+    // ── قرفصاء (سكوات) ──
+    squat: { muscle: "الفخذ والمؤخرة", note: "انزل حتى يوازي الفخذ الأرض ثم ادفع لأعلى", body: (
+      <g style={anim("aiSquatBody", {}, "100px 130px")}>
+        {/* أرجل تنثني */}
+        <g style={anim("aiSquatLeg", {}, "100px 100px")}>
+          <line x1="100" y1="100" x2="86" y2="118" {...Thigh} /><line x1="86" y1="118" x2="90" y2="134" {...Shin} /><Joint x={86} y={118} />
+          <line x1="100" y1="100" x2="114" y2="118" {...Thigh} /><line x1="114" y1="118" x2="110" y2="134" {...Shin} /><Joint x={114} y={118} />
+        </g>
+        {/* جذع */}
+        <line x1="100" y1="100" x2="100" y2="64" {...Torso} stroke="url(#aiTorso)" />
+        <Head x={100} y={53} r={11} />
+        {/* بار على الكتفين + ذراعان */}
+        <rect x="74" y="64" width="52" height="7" rx="3.5" {...gold} /><circle cx="77" cy="67.5" r="6.5" {...gold} /><circle cx="123" cy="67.5" r="6.5" {...gold} />
+        <line x1="100" y1="76" x2="82" y2="67" {...Fore} /><line x1="100" y1="76" x2="118" y2="67" {...Fore} />
+        <Red x={112} y={116} r={11} /><Red x={88} y={116} r={11} />
+        <Path d="M138 66 L138 96" ballFrom={[138,66]} ballTo={[138,96]} />
+      </g>
+    )},
+    // ── ضغط كتف واقف ──
+    pressV: { muscle: "الأكتاف", note: "ادفع البار فوق الرأس بثبات ثم أنزله للكتف", body: (
       <>
-        <line x1="70" y1="133" x2="130" y2="133" stroke="#3f3f46" strokeWidth="4" />
-        <path d="M100 132 L90 132" {...S2} />
-        <path d="M100 106 L92 132" {...S} />
-        <path d="M100 106 L108 132" {...S} />
-        <path d="M100 106 L100 62" {...S} strokeWidth="16" stroke="url(#aiTorso)" />
-        <Head x={100} y={51} r={10} />
-        {/* ذراعان يرفعان البار فوق الرأس */}
-        <g style={anim("aiScaleY", { "--s": 0.42 }, "88px 66px")}>
-          <path d="M88 66 L88 36" {...S2} />
+        <line x1="100" y1="132" x2="90" y2="132" {...Shin} />
+        <line x1="100" y1="104" x2="92" y2="132" {...Thigh} /><line x1="100" y1="104" x2="108" y2="132" {...Thigh} />
+        <line x1="100" y1="104" x2="100" y2="62" {...Torso} stroke="url(#aiTorso)" />
+        <Head x={100} y={51} r={11} />
+        {/* ذراعان يرفعان البار */}
+        <g style={anim("aiPressArm", {}, "86px 66px")}>
+          <line x1="86" y1="66" x2="86" y2="46" {...Upper} /><line x1="86" y1="46" x2="86" y2="34" {...Fore} /><Joint x={86} y={46} />
         </g>
-        <g style={anim("aiScaleY", { "--s": 0.42 }, "112px 66px")}>
-          <path d="M112 66 L112 36" {...S2} />
+        <g style={anim("aiPressArm", {}, "114px 66px")}>
+          <line x1="114" y1="66" x2="114" y2="46" {...Upper} /><line x1="114" y1="46" x2="114" y2="34" {...Fore} /><Joint x={114} y={46} />
         </g>
-        <g style={anim("aiSlideY", { "--d": "24px" })}>
-          <rect x="76" y="33" width="48" height="6.5" rx="3" fill="url(#aiGoldGrad)" />
-          <circle cx="79" cy="36" r="6" fill="url(#aiGoldGrad)" />
-          <circle cx="121" cy="36" r="6" fill="url(#aiGoldGrad)" />
+        <g style={anim("aiPressBar", {})}>
+          <rect x="76" y="31" width="48" height="6.5" rx="3" {...gold} /><circle cx="79" cy="34" r="6" {...gold} /><circle cx="121" cy="34" r="6" {...gold} />
         </g>
-        <Red x={90} y={62} r={9} />
-        <Red x={110} y={62} r={9} />
+        <Red x={88} y={62} r={9} /><Red x={112} y={62} r={9} />
+        <Path d="M132 36 L132 62" ballFrom={[132,36]} ballTo={[132,62]} />
       </>
-    ),
-    squat: (
+    )},
+    // ── مرجحة بايسبس ──
+    curl: { muscle: "البايسبس", note: "ارفع الوزن بثني المرفق حتى الكتف ببطء", body: (
       <>
-        <line x1="58" y1="133" x2="142" y2="133" stroke="#3f3f46" strokeWidth="4" />
-        {/* الجسم كله ينزل ويصعد كوحدة واحدة */}
-        <g style={anim("aiSlideY", { "--d": "16px" })}>
-          {/* أرجل تنثني عند النزول */}
-          <g style={anim("aiScaleY", { "--s": 0.82 }, "100px 132px")}>
-            <path d="M100 102 L114 116 L110 132" {...S} />
-            <path d="M100 102 L86 116 L90 132" {...S} />
-          </g>
-          {/* جذع مصمت */}
-          <path d="M100 102 L100 62" {...S} strokeWidth="16" stroke="url(#aiTorso)" />
-          <Head x={100} y={52} r={10} />
-          {/* بار على الكتفين */}
-          <rect x="76" y="62" width="48" height="6.5" rx="3" fill="url(#aiGoldGrad)" />
-          <circle cx="79" cy="65" r="6.5" fill="url(#aiGoldGrad)" />
-          <circle cx="121" cy="65" r="6.5" fill="url(#aiGoldGrad)" />
-          {/* ذراعان يمسكان البار */}
-          <path d="M100 76 L84 66" {...S2} />
-          <path d="M100 76 L116 66" {...S2} />
-          <Red x={112} y={116} r={10} />
-          <Red x={88} y={116} r={10} />
+        <line x1="100" y1="132" x2="92" y2="132" {...Shin} />
+        <line x1="100" y1="104" x2="93" y2="132" {...Thigh} /><line x1="100" y1="104" x2="107" y2="132" {...Thigh} />
+        <line x1="100" y1="104" x2="100" y2="60" {...Torso} stroke="url(#aiTorso)" />
+        <Head x={100} y={49} r={11} />
+        {/* عضد ثابت + ساعد يرتفع */}
+        <line x1="103" y1="66" x2="105" y2="90" {...Upper} /><Joint x={105} y={90} />
+        <g style={anim("aiCurlArm", {}, "105px 90px")}>
+          <line x1="105" y1="90" x2="125" y2="94" {...Fore} />
+          <circle cx="130" cy="94" r="7" {...gold} />
         </g>
+        <Red x={104} y={77} r={9} />
+        <Path d="M130 94 A 26 26 0 0 1 112 70" ballFrom={[130,94]} ballTo={[112,70]} />
       </>
-    ),
-    hinge: (
+    )},
+    // ── تجديف ظهر ──
+    row: { muscle: "الظهر", note: "اسحب الوزن لأسفل البطن مع ضم لوح الكتف", body: (
       <>
-        <line x1="70" y1="131" x2="130" y2="131" stroke="#3f3f46" strokeWidth="4" />
-        <line x1="100" y1="100" x2="95" y2="130" {...S} />
-        <line x1="100" y1="100" x2="105" y2="130" {...S} />
-        <g style={anim("aiRot", { "--r2": "78deg" }, "100px 100px")}>
-          <line x1="100" y1="100" x2="100" y2="62" {...S} />
-          <circle cx="100" cy="52" r="9" {...S} />
-          <line x1="100" y1="70" x2="100" y2="94" {...S} strokeWidth={4} />
-          <circle cx="100" cy="97" r="6" {...B} />
+        <line x1="96" y1="104" x2="90" y2="131" {...Thigh} /><line x1="96" y1="104" x2="104" y2="131" {...Thigh} />
+        <line x1="96" y1="104" x2="134" y2="82" {...Torso} stroke="url(#aiTorso)" />
+        <Head x={142} y={76} r={11} />
+        {/* ذراع تسحب */}
+        <g style={anim("aiRowArm", {}, "116px 88px")}>
+          <line x1="116" y1="88" x2="118" y2="106" {...Upper} /><line x1="118" y1="106" x2="118" y2="120" {...Fore} /><Joint x={118} y={106} />
+          <circle cx="118" cy="124" r="7" {...gold} />
         </g>
-        <Red x={99} y={113} r={9} />
+        <Red x={120} y={90} r={11} />
+        <Path d="M118 124 L118 100" ballFrom={[118,124]} ballTo={[118,100]} />
       </>
-    ),
-    row: (
+    )},
+    // ── ترايسبس (دفع كيبل لأسفل) ──
+    pushdown: { muscle: "الترايسبس", note: "مدّ الساعد بالكامل لأسفل مع تثبيت المرفق", body: (
       <>
-        <line x1="66" y1="132" x2="150" y2="132" stroke="#3f3f46" strokeWidth="4" />
-        <path d="M96 104 L90 131" {...S} />
-        <path d="M96 104 L104 131" {...S} />
-        {/* جذع منحنٍ للأمام (وضع التجديف) */}
-        <path d="M96 104 L134 80" {...S} strokeWidth="16" stroke="url(#aiTorso)" />
-        <Head x={142} y={74} r={10} />
-        {/* ذراع يسحب الوزن للأعلى/الأسفل */}
-        <g style={anim("aiSlideY", { "--d": "-14px" })}>
-          <path d="M120 92 L120 114" {...S2} />
-          <circle cx="120" cy="118" r="7" fill="url(#aiGoldGrad)" />
+        <line x1="128" y1="8" x2="128" y2="52" stroke="#52525b" strokeWidth="2.5" />
+        <line x1="100" y1="132" x2="92" y2="132" {...Shin} />
+        <line x1="100" y1="104" x2="93" y2="132" {...Thigh} /><line x1="100" y1="104" x2="107" y2="132" {...Thigh} />
+        <line x1="100" y1="104" x2="100" y2="60" {...Torso} stroke="url(#aiTorso)" />
+        <Head x={100} y={49} r={11} />
+        <line x1="104" y1="66" x2="108" y2="86" {...Upper} /><Joint x={108} y={86} />
+        <g style={anim("aiPushArm", {}, "108px 86px")}>
+          <line x1="108" y1="86" x2="124" y2="98" {...Fore} />
+          <rect x="120" y="94" width="9" height="12" rx="3" {...gold} />
         </g>
-        <Red x={116} y={86} r={11} />
+        <Red x={106} y={76} r={9} />
+        <Path d="M124 76 L124 98" ballFrom={[124,76]} ballTo={[124,98]} />
       </>
-    ),
-    pulldown: (
+    )},
+    // ── سحب علوي (عقلة/بولداون) ──
+    pulldown: { muscle: "الظهر العريض", note: "اسحب البار لأسفل حتى أعلى الصدر", body: (
       <>
-        <line x1="100" y1="8" x2="100" y2="20" stroke="#52525b" strokeWidth="3" />
-        <rect x="86" y="108" width="28" height="6" rx="2" fill="#3f3f46" />
-        <path d="M100 108 L120 112 L120 130" {...S} />
-        <line x1="100" y1="108" x2="100" y2="64" {...S} />
-        <circle cx="100" cy="54" r="9" {...S} />
-        <line x1="100" y1="66" x2="84" y2="40" {...S} strokeWidth={4} style={anim("aiScaleY", { "--s": 0.5 }, "100px 66px")} />
-        <line x1="100" y1="66" x2="116" y2="40" {...S} strokeWidth={4} style={anim("aiScaleY", { "--s": 0.5 }, "100px 66px")} />
-        <g style={anim("aiSlideY", { "--d": "22px" })}>
-          <line x1="76" y1="38" x2="124" y2="38" {...B} />
+        <line x1="100" y1="8" x2="100" y2="18" stroke="#52525b" strokeWidth="3" />
+        <line x1="100" y1="104" x2="92" y2="130" {...Thigh} /><line x1="100" y1="104" x2="108" y2="130" {...Thigh} />
+        <line x1="100" y1="104" x2="100" y2="62" {...Torso} stroke="url(#aiTorso)" />
+        <Head x={100} y={51} r={11} />
+        <g style={anim("aiPullArm", {}, "100px 66px")}>
+          <line x1="100" y1="66" x2="84" y2="44" {...Upper} /><line x1="84" y1="44" x2="82" y2="30" {...Fore} /><Joint x={84} y={44} />
+          <line x1="100" y1="66" x2="116" y2="44" {...Upper} /><line x1="116" y1="44" x2="118" y2="30" {...Fore} /><Joint x={116} y={44} />
         </g>
-        <Red x={90} y={82} r={8} />
-        <Red x={110} y={82} r={8} />
+        <g style={anim("aiPullBar", {})}>
+          <rect x="74" y="27" width="52" height="6" rx="3" {...gold} />
+        </g>
+        <Red x={88} y={80} r={9} /><Red x={112} y={80} r={9} />
+        <Path d="M132 34 L132 60" ballFrom={[132,34]} ballTo={[132,60]} />
       </>
-    ),
-    curl: (
+    )},
+    // ── الرفعة المميتة/هينج ──
+    hinge: { muscle: "أسفل الظهر والمؤخرة", note: "ادفع الورك للخلف مع ظهر مستقيم ثم انهض", body: (
+      <g style={anim("aiHinge", {}, "100px 100px")}>
+        <line x1="100" y1="100" x2="94" y2="130" {...Thigh} /><line x1="100" y1="100" x2="106" y2="130" {...Thigh} />
+        <line x1="100" y1="100" x2="100" y2="62" {...Torso} stroke="url(#aiTorso)" />
+        <Head x={100} y={52} r={11} />
+        <line x1="100" y1="70" x2="100" y2="96" {...Fore} />
+        <circle cx="100" cy="99" r="7" {...gold} />
+        <Red x={100} y={112} r={10} />
+      </g>
+    )},
+    // ── رفرفة جانبية ──
+    latRaise: { muscle: "الكتف الجانبي", note: "ارفع الذراعين للجانب حتى مستوى الكتف", body: (
       <>
-        <line x1="80" y1="132" x2="120" y2="132" stroke="#3f3f46" strokeWidth="4" />
-        <path d="M100 104 L93 131" {...S} />
-        <path d="M100 104 L107 131" {...S} />
-        <path d="M100 104 L100 60" {...S} strokeWidth="16" stroke="url(#aiTorso)" />
-        <Head x={100} y={50} r={10} />
-        {/* عضد ثابت + ساعد يرتفع (انقباض بايسبس) */}
-        <path d="M104 68 L104 88" {...S2} />
-        <g style={anim("aiRot", { "--r1": "0deg", "--r2": "-115deg" }, "104px 88px")}>
-          <path d="M104 88 L126 92" {...S2} />
-          <circle cx="130" cy="92" r="6.5" fill="url(#aiGoldGrad)" />
+        <line x1="100" y1="104" x2="90" y2="131" {...Thigh} /><line x1="100" y1="104" x2="110" y2="131" {...Thigh} />
+        <line x1="100" y1="104" x2="100" y2="60" {...Torso} stroke="url(#aiTorso)" />
+        <Head x={100} y={49} r={11} />
+        <g style={anim("aiRaiseR", {}, "100px 64px")}>
+          <line x1="100" y1="64" x2="128" y2="64" {...Upper} /><circle cx="133" cy="64" r="6" {...gold} />
         </g>
-        <Red x={105} y={76} r={9} />
+        <g style={anim("aiRaiseL", {}, "100px 64px")}>
+          <line x1="100" y1="64" x2="72" y2="64" {...Upper} /><circle cx="67" cy="64" r="6" {...gold} />
+        </g>
+        <Red x={112} y={60} r={8} /><Red x={88} y={60} r={8} />
+        <Path d="M133 64 A 34 34 0 0 0 128 96" ballFrom={[133,64]} ballTo={[126,96]} />
       </>
-    ),
-    pushdown: (
+    )},
+    // ── تفتيح صدر ──
+    fly: { muscle: "الصدر", note: "افتح الذراعين ثم اضممهما أمام الصدر", body: (
       <>
-        <line x1="126" y1="8" x2="126" y2="54" stroke="#52525b" strokeWidth="2.5" />
-        <line x1="80" y1="132" x2="120" y2="132" stroke="#3f3f46" strokeWidth="4" />
-        <path d="M100 104 L93 131" {...S} />
-        <path d="M100 104 L107 131" {...S} />
-        <path d="M100 104 L100 60" {...S} strokeWidth="16" stroke="url(#aiTorso)" />
-        <Head x={100} y={50} r={10} />
-        {/* عضد ثابت + ساعد يدفع للأسفل (انقباض ترايسبس) */}
-        <path d="M104 68 L108 84" {...S2} />
-        <g style={anim("aiRot", { "--r1": "-58deg", "--r2": "2deg" }, "108px 84px")}>
-          <path d="M108 84 L126 92" {...S2} />
-          <rect x="122" y="86" width="8" height="12" rx="3" fill="url(#aiGoldGrad)" />
+        <rect x="60" y="108" width="80" height="8" rx="4" fill="#52525b" />
+        <line x1="70" y1="102" x2="128" y2="102" {...Torso} stroke="url(#aiTorso)" />
+        <Head x={62} y={102} r={11} />
+        <g style={anim("aiFlyR", {}, "100px 96px")}>
+          <line x1="100" y1="96" x2="100" y2="66" {...Upper} /><circle cx="100" cy="62" r="6" {...gold} />
         </g>
-        <Red x={107} y={76} r={9} />
+        <Red x={92} y={97} r={11} />
+        <Path d="M78 70 A 30 24 0 0 1 122 70" ballFrom={[78,70]} ballTo={[122,70]} />
       </>
-    ),
-    latRaise: (
+    )},
+    // ── بلانك ──
+    plank: { muscle: "عضلات الجذع", note: "حافظ على الجسم مستقيماً من الرأس للكعب", body: (
       <>
-        <line x1="75" y1="131" x2="125" y2="131" stroke="#3f3f46" strokeWidth="4" />
-        <line x1="100" y1="100" x2="90" y2="130" {...S} />
-        <line x1="100" y1="100" x2="110" y2="130" {...S} />
-        <line x1="100" y1="100" x2="100" y2="60" {...S} />
-        <circle cx="100" cy="49" r="9" {...S} />
-        <g style={anim("aiRot", { "--r1": "72deg", "--r2": "0deg" }, "100px 63px")}>
-          <line x1="100" y1="63" x2="132" y2="63" {...S} strokeWidth={4} />
-          <circle cx="136" cy="63" r="5.5" {...B} />
+        <line x1="38" y1="124" x2="162" y2="124" stroke="#3f3f46" strokeWidth="4" />
+        <g style={anim("aiBreath", {})}>
+          <line x1="62" y1="100" x2="140" y2="108" {...Torso} stroke="url(#aiTorso)" />
+          <Head x={54} y={99} r={11} />
+          <line x1="140" y1="108" x2="156" y2="120" {...Thigh} />
+          <line x1="70" y1="102" x2="66" y2="122" {...Fore} /><line x1="60" y1="122" x2="80" y2="122" {...Fore} />
+          <Red x={100} y={104} r={11} />
         </g>
-        <g style={anim("aiRot", { "--r1": "-72deg", "--r2": "0deg" }, "100px 63px")}>
-          <line x1="100" y1="63" x2="68" y2="63" {...S} strokeWidth={4} />
-          <circle cx="64" cy="63" r="5.5" {...B} />
-        </g>
-        <Red x={113} y={60} r={8} />
-        <Red x={87} y={60} r={8} />
       </>
-    ),
-    fly: (
+    )},
+    // ── رفع أرجل للبطن ──
+    legRaise: { muscle: "أسفل البطن", note: "ارفع الساقين لأعلى مع تثبيت الظهر", body: (
       <>
-        <line x1="75" y1="131" x2="125" y2="131" stroke="#3f3f46" strokeWidth="4" />
-        <line x1="100" y1="100" x2="90" y2="130" {...S} />
-        <line x1="100" y1="100" x2="110" y2="130" {...S} />
-        <line x1="100" y1="100" x2="100" y2="60" {...S} />
-        <circle cx="100" cy="49" r="9" {...S} />
-        <g style={anim("aiRot", { "--r2": "55deg" }, "100px 63px")}>
-          <line x1="100" y1="63" x2="134" y2="58" {...S} strokeWidth={4} />
-          <circle cx="137" cy="58" r="5" {...B} />
+        <line x1="70" y1="16" x2="130" y2="16" stroke="#71717a" strokeWidth="5" strokeLinecap="round" />
+        <line x1="100" y1="20" x2="100" y2="88" {...Torso} stroke="url(#aiTorso)" />
+        <Head x={100} y={30} r={10} />
+        <g style={anim("aiLegRaise", {}, "100px 88px")}>
+          <line x1="100" y1="88" x2="100" y2="120" {...Thigh} /><line x1="100" y1="120" x2="100" y2="134" {...Shin} /><Joint x={100} y={120} />
         </g>
-        <g style={anim("aiRot", { "--r2": "-55deg" }, "100px 63px")}>
-          <line x1="100" y1="63" x2="66" y2="58" {...S} strokeWidth={4} />
-          <circle cx="63" cy="58" r="5" {...B} />
-        </g>
-        <Red x={92} y={64} r={8} />
-        <Red x={108} y={64} r={8} />
+        <Red x={100} y={80} r={10} />
+        <Path d="M100 134 A 40 40 0 0 1 132 96" ballFrom={[100,132]} ballTo={[130,98]} />
       </>
-    ),
-    plank: (
+    )},
+    // ── سمانة ──
+    calf: { muscle: "السمانة", note: "ارفع كعبيك لأقصى مدى ثم أنزل ببطء", body: (
+      <g style={anim("aiCalf", {}, "100px 128px")}>
+        <rect x="80" y="126" width="40" height="7" rx="2" fill="#3f3f46" />
+        <line x1="100" y1="126" x2="100" y2="60" {...Torso} stroke="url(#aiTorso)" />
+        <Head x={100} y={50} r={11} />
+        <line x1="100" y1="70" x2="86" y2="66" {...Fore} /><line x1="100" y1="70" x2="114" y2="66" {...Fore} />
+        <Red x={100} y={116} r={9} />
+        <Path d="M126 118 L126 128" ballFrom={[126,110]} ballTo={[126,126]} />
+      </g>
+    )},
+    // ── لانج ──
+    lunge: { muscle: "الفخذ والمؤخرة", note: "اخطُ للأمام وانزل حتى يقترب الركبة من الأرض", body: (
+      <g style={anim("aiSquatBody", {}, "100px 128px")}>
+        <line x1="100" y1="102" x2="122" y2="120" {...Thigh} /><line x1="122" y1="120" x2="122" y2="134" {...Shin} /><Joint x={122} y={120} />
+        <line x1="100" y1="102" x2="80" y2="120" {...Thigh} /><line x1="80" y1="120" x2="92" y2="134" {...Shin} /><Joint x={80} y={120} />
+        <line x1="100" y1="102" x2="100" y2="62" {...Torso} stroke="url(#aiTorso)" />
+        <Head x={100} y={52} r={11} />
+        <Red x={116} y={118} r={10} />
+        <Path d="M138 96 L138 116" ballFrom={[138,96]} ballTo={[138,116]} />
+      </g>
+    )},
+    // ── ثني أرجل خلفي ──
+    legCurl: { muscle: "الخلفية (Hamstring)", note: "اثنِ الساق نحو المؤخرة ببطء ثم مدّها", body: (
       <>
-        <line x1="40" y1="122" x2="160" y2="122" stroke="#3f3f46" strokeWidth="4" />
-        <g style={anim("aiSlideY", { "--d": "4px" })}>
-          <circle cx="52" cy="92" r="8.5" {...S} />
-          <line x1="62" y1="96" x2="132" y2="102" {...S} />
-          <path d="M132 102 L152 118" {...S} />
-          <line x1="70" y1="98" x2="66" y2="120" {...S} strokeWidth={4} />
-          <line x1="58" y1="120" x2="80" y2="120" {...S} strokeWidth={4} />
-          <Red x={98} y={97} />
+        <rect x="40" y="70" width="90" height="8" rx="4" fill="#52525b" />
+        <line x1="46" y1="74" x2="118" y2="74" {...Torso} stroke="url(#aiTorso)" />
+        <Head x={40} y={74} r={10} />
+        <g style={anim("aiLegCurl", {}, "118px 74px")}>
+          <line x1="118" y1="74" x2="140" y2="82" {...Thigh} /><line x1="140" y1="82" x2="150" y2="66" {...Shin} /><Joint x={140} y={82} />
+          <rect x="146" y="60" width="10" height="7" rx="3" {...gold} />
         </g>
+        <Red x={132} y={80} r={9} />
+        <Path d="M152 92 A 24 24 0 0 1 150 64" ballFrom={[152,92]} ballTo={[150,64]} />
       </>
-    ),
-    legRaise: (
-      <>
-        <line x1="72" y1="16" x2="128" y2="16" stroke="#71717a" strokeWidth="5" strokeLinecap="round" />
-        <line x1="90" y1="16" x2="99" y2="43" {...S} strokeWidth={4} />
-        <line x1="110" y1="16" x2="101" y2="43" {...S} strokeWidth={4} />
-        <circle cx="100" cy="33" r="8" {...S} />
-        <line x1="100" y1="43" x2="100" y2="88" {...S} />
-        <g style={anim("aiRot", { "--r2": "-85deg" }, "100px 88px")}>
-          <line x1="100" y1="88" x2="100" y2="124" {...S} />
-        </g>
-        <Red x={100} y={78} r={9} />
-      </>
-    ),
-    calf: (
-      <>
-        <rect x="82" y="124" width="44" height="7" rx="2" fill="#3f3f46" />
-        <g style={anim("aiSlideY", { "--d": "-9px" })}>
-          <circle cx="100" cy="42" r="9" {...S} />
-          <line x1="100" y1="52" x2="100" y2="98" {...S} />
-          <line x1="100" y1="98" x2="97" y2="123" {...S} />
-          <line x1="100" y1="98" x2="104" y2="123" {...S} />
-          <Red x={102} y={112} r={8} />
-        </g>
-      </>
-    ),
-    lunge: (
-      <>
-        <line x1="55" y1="131" x2="145" y2="131" stroke="#3f3f46" strokeWidth="4" />
-        <path d="M100 100 L122 112 L122 130" {...S} />
-        <path d="M100 100 L84 116 L68 128" {...S} />
-        <g style={anim("aiSlideY", { "--d": "14px" })}>
-          <line x1="100" y1="100" x2="100" y2="58" {...S} />
-          <circle cx="100" cy="48" r="9" {...S} />
-          <circle cx="88" cy="92" r="5" {...B} />
-          <circle cx="112" cy="92" r="5" {...B} />
-        </g>
-        <Red x={114} y={108} />
-      </>
-    ),
-    legCurl: (
-      <>
-        <rect x="48" y="100" width="86" height="7" rx="3" fill="#3f3f46" />
-        <line x1="56" y1="107" x2="56" y2="127" stroke="#3f3f46" strokeWidth="5" />
-        <line x1="126" y1="107" x2="126" y2="127" stroke="#3f3f46" strokeWidth="5" />
-        <circle cx="56" cy="92" r="8.5" {...S} />
-        <line x1="66" y1="96" x2="120" y2="96" {...S} />
-        <line x1="120" y1="96" x2="142" y2="98" {...S} />
-        <g style={anim("aiRot", { "--r2": "-100deg" }, "142px 98px")}>
-          <line x1="142" y1="98" x2="162" y2="102" {...S} />
-          <circle cx="164" cy="102" r="5.5" {...B} />
-        </g>
-        <Red x={130} y={91} r={9} />
-      </>
-    ),
+    )},
   };
 
+  const scene = scenes[pattern] || scenes.pressH;
+
   return (
-    <svg viewBox="0 0 200 150" className="relative z-0 w-full h-48 md:h-60">
+    <svg viewBox="0 0 200 160" className="relative z-0 w-full h-52 md:h-64">
       <defs>
-        <radialGradient id="aiRedGrad">
-          <stop offset="0%" stopColor="#ef4444" stopOpacity="0.85" />
-          <stop offset="100%" stopColor="#ef4444" stopOpacity="0" />
-        </radialGradient>
-        <linearGradient id="aiGoldGrad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#ecd19a" />
-          <stop offset="55%" stopColor="#d4af6e" />
-          <stop offset="100%" stopColor="#a8843f" />
-        </linearGradient>
-        <radialGradient id="aiHeadShade" cx="0.38" cy="0.35" r="0.75">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.9" />
-          <stop offset="55%" stopColor="#d4d4d8" stopOpacity="0.15" />
-          <stop offset="100%" stopColor="#52525b" stopOpacity="0.55" />
-        </radialGradient>
-        <linearGradient id="aiTorso" x1="0" y1="0" x2="0.6" y2="1">
-          <stop offset="0%" stopColor="#fafafa" />
-          <stop offset="100%" stopColor="#c4c4c9" />
-        </linearGradient>
-        <filter id="aiSoft" x="-25%" y="-25%" width="150%" height="150%">
-          <feDropShadow dx="0" dy="1.6" stdDeviation="1.7" floodColor="#000000" floodOpacity="0.55" />
-        </filter>
+        <radialGradient id="aiRedGrad"><stop offset="0%" stopColor="#ef4444" stopOpacity="0.85" /><stop offset="100%" stopColor="#ef4444" stopOpacity="0" /></radialGradient>
+        <linearGradient id="aiGoldGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#ecd19a" /><stop offset="55%" stopColor="#d4af6e" /><stop offset="100%" stopColor="#a8843f" /></linearGradient>
+        <radialGradient id="aiHeadShade" cx="0.38" cy="0.35" r="0.75"><stop offset="0%" stopColor="#ffffff" stopOpacity="0.9" /><stop offset="55%" stopColor="#d4d4d8" stopOpacity="0.15" /><stop offset="100%" stopColor="#52525b" stopOpacity="0.55" /></radialGradient>
+        <linearGradient id="aiTorso" x1="0" y1="0" x2="0.6" y2="1"><stop offset="0%" stopColor="#fafafa" /><stop offset="100%" stopColor="#bfc0c5" /></linearGradient>
+        <filter id="aiSoft" x="-25%" y="-25%" width="150%" height="150%"><feDropShadow dx="0" dy="1.6" stdDeviation="1.6" floodColor="#000" floodOpacity="0.5" /></filter>
       </defs>
 
-      {/* ظل أرضي يتنفس مع الحركة — إحساس بالعمق */}
-      <ellipse cx="100" cy="141" rx="44" ry="4.5" fill="#000"
-        style={{ animation: `aiShadow ${dur}s ease-in-out infinite`, animationPlayState: playState, transformBox: "view-box", transformOrigin: "100px 141px" }} />
+      {/* أرضية */}
+      <ellipse cx="100" cy="150" rx="52" ry="4.5" fill="#000" opacity="0.28" />
 
-      {/* جسم التمرين مع ظل ناعم */}
-      <g filter="url(#aiSoft)">{bodies[pattern] || bodies.pressH}</g>
+      {/* الشخصية + المسار */}
+      <g filter="url(#aiSoft)">{scene.body}</g>
 
-      {/* مؤشر اتجاه الحركة — أسهم نابضة بإيقاع التكرار */}
-      <g style={{ animation: `aiChev ${dur / 2}s ease-in-out infinite`, animationPlayState: playState, transformBox: "view-box", transformOrigin: "17px 66px" }}>
-        <path d="M10 58 l7 8 l7 -8" stroke="#d4af6e" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M10 70 l7 8 l7 -8" stroke="#d4af6e" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" opacity="0.45" />
+      {/* شارة العضلة العاملة */}
+      <g>
+        <rect x="6" y="8" width="4" height="14" rx="2" fill="#ef4444" />
+        <text x="15" y="14" fontSize="9" fontWeight="900" fill="#f4f4f5">العضلة العاملة</text>
+        <text x="15" y="25" fontSize="10" fontWeight="900" fill="#fca5a5">{scene.muscle}</text>
       </g>
 
-      {/* تسميات مرحلة الأداء — تتبادل بإيقاع التكرار نفسه */}
-      <text x="196" y="14" textAnchor="end" fontSize="9.5" fontWeight="800" fill="#34d399"
-        style={{ animation: `aiFadeA ${dur}s linear infinite`, animationPlayState: playState }}>ادفع بقوة مع الزفير ⬆</text>
-      <text x="196" y="14" textAnchor="end" fontSize="9.5" fontWeight="800" fill="#fbbf24"
-        style={{ animation: `aiFadeB ${dur}s linear infinite`, animationPlayState: playState }}>نزول بطيء متحكم ⬇</text>
-      <text x="196" y="147" textAnchor="end" fontSize="8" fontWeight="700" fill="#71717a"
-      >الإيقاع الموصى: ٢ ثانية صعود · ٣ ثوانٍ نزول</text>
+      {/* تعليمة التكنيك أسفل الرسم */}
+      <text x="100" y="157" textAnchor="middle" fontSize="8.5" fontWeight="700" fill="#a1a1aa">{scene.note}</text>
+
+      {/* مؤشر المرحلة (رفع/إنزال) يتبادل */}
+      <text x="194" y="14" textAnchor="end" fontSize="9" fontWeight="900" fill="#34d399" style={{ animation: `aiFadeA ${dur}s linear infinite`, animationPlayState: playState }}>⬆ الرفع (ازفر)</text>
+      <text x="194" y="14" textAnchor="end" fontSize="9" fontWeight="900" fill="#fbbf24" style={{ animation: `aiFadeB ${dur}s linear infinite`, animationPlayState: playState }}>⬇ الإنزال (اشهق)</text>
     </svg>
   );
 }
@@ -3375,7 +3353,7 @@ function ProfileEditor({ open, profile, onClose, onSave }) {
   );
 }
 
-function Dashboard({ profile, plan, onUpgrade, onSaveProfile }) {
+function Dashboard({ profile, plan, onUpgrade, onSaveProfile, onLogout }) {
   const [tab, setTab] = useState("plan");
   const [swaps, setSwaps] = useState({});
   const [dayStatus, setDayStatus] = useState({});
@@ -3427,7 +3405,11 @@ function Dashboard({ profile, plan, onUpgrade, onSaveProfile }) {
             </span>
             <button onClick={() => setEditOpen(true)} title="تعديل بياناتي"
               className="flex items-center gap-1.5 bg-zinc-800 border border-zinc-700 hover:border-amber-400/60 hover:text-amber-300 text-zinc-300 rounded-full px-3 py-1.5 text-xs font-bold transition-colors">
-              <Settings size={13} /> بياناتي
+              <Settings size={13} /> <span className="hidden sm:inline">بياناتي</span>
+            </button>
+            <button onClick={onLogout} title="تسجيل الخروج"
+              className="flex items-center gap-1.5 bg-zinc-800 border border-zinc-700 hover:border-rose-500/60 hover:text-rose-400 text-zinc-300 rounded-full px-3 py-1.5 text-xs font-bold transition-colors">
+              <LogOut size={13} /> <span className="hidden sm:inline">خروج</span>
             </button>
             <div className="bg-zinc-800 border border-zinc-700 rounded-full w-8 h-8 flex items-center justify-center font-black text-amber-300 text-xs">
               {profile.name?.[0] || <User size={14} />}
@@ -3588,6 +3570,8 @@ function App() {
       // إن كان مشتركاً مسجّلاً، ادخله مباشرة للوحة تحكمه
       if (p && pl) setView("dashboard");
     } catch {}
+    // اختصار مباشر للوحة الإدارة: أضف #admin لنهاية رابط الموقع
+    try { if (window.location.hash === "#admin") setView("admin"); } catch {}
     setReady(true);
   }, []);
 
@@ -3651,7 +3635,8 @@ function App() {
       {view === "onboarding" && <Onboarding onDone={(p) => { setProfile(p); setView("plans"); }} onBack={() => setView("landing")} />}
       {view === "plans" && <Plans coupons={coupons} currentPlan={plan} onSubscribed={(pl) => { setPlan(pl); setView("dashboard"); }} onBack={() => setView(plan ? "dashboard" : "onboarding")} />}
       {view === "dashboard" && profile && <Dashboard profile={profile} plan={plan} onUpgrade={() => setView("plans")}
-        onSaveProfile={(p) => setProfile((cur) => ({ ...(cur || {}), ...p }))} />}
+        onSaveProfile={(p) => setProfile((cur) => ({ ...(cur || {}), ...p }))}
+        onLogout={() => { clearSession(); setProfile(null); setPlan(null); setView("landing"); }} />}
     </div>
     </SiteData.Provider>
   );
