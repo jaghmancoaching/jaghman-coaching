@@ -5,7 +5,7 @@ import {
   Dumbbell, PlayCircle, RefreshCw, MessageCircle, Video, Users, TrendingUp,
   Bell, Check, X, ChevronLeft, ChevronRight, Flame, Shield, Calendar, Heart,
   Send, AlertTriangle, Crown, Zap, Activity, Clock, Target, User, LogOut, Star, Pause, Lock,
-  BookOpen, Utensils, ChevronDown, Gift, Ticket, Mail, Bot, UserPlus, Award, Copy
+  BookOpen, Utensils, ChevronDown, Settings, Gift, Ticket, Mail, Bot, UserPlus, Award, Copy
 } from "lucide-react";
 import { BarChart, Bar } from "recharts";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
@@ -18,6 +18,10 @@ const logCalories = sheet.logCalories || (async () => ({ ok: true, local: true }
 const getCalories = sheet.getCalories || (async () => ({ ok: false, local: true, items: [] }));
 const GOOGLE_CLIENT_ID = sheet.GOOGLE_CLIENT_ID || ""; // يُفعّل زر جوجل عند وضع المعرّف في sheetData.js
 const saveAnatomyVideos = sheet.saveAnatomyVideos || null; // حفظ فيديوهات التشريح 3D في جدول جوجل (اختياري)
+const saveProfileCloud = sheet.saveProfile || null;  // حفظ بيانات جسم المشترك في الجدول (اختياري)
+const getProfileCloud = sheet.getProfile || null;    // جلبها عند الدخول من أي جهاز (اختياري)
+// مفتاح تخزين الملف الشخصي لكل مشترك على حدة — يمنع اختلاط بيانات المستخدمين على نفس الجهاز
+const profileKey = (p) => "jg_profile_" + String((p && (p.username || p.email || p.name)) || "guest").trim();
 
 // سياق يوفّر بيانات الجدول لكل مكونات الموقع
 const SiteData = React.createContext({ connected: false });
@@ -1456,7 +1460,7 @@ function MuscleMap({ group }) {
 function ExerciseModal({ ex, onClose, onSwap, equipment }) {
   const [vtab, setVtab] = useState("anatomy");
   const site = useSite();
-  useEffect(() => { setVtab("anatomy"); }, [ex]);
+
   if (!ex) return null;
   const en = EN_OF[ex.name] || ex.name;
   /* الفيديو يُعرض مضمّناً داخل الموقع من مصادر مؤكّدة فقط (معتمدة من لوحة الإدارة/الكود).
@@ -1470,6 +1474,7 @@ function ExerciseModal({ ex, onClose, onSwap, equipment }) {
     || null;
   const ytId = (site.videos && site.videos[ex.name]) || JEFF_YT[ex.name] || null;
   const anatomySrc = anatomyId ? `https://www.youtube.com/embed/${anatomyId}?rel=0&modestbranding=1&playsinline=1` : null;
+  useEffect(() => { setVtab(anatomyId ? "anatomy" : "motion"); }, [ex, anatomyId]);
   const realSrc = ytId ? `https://www.youtube.com/embed/${ytId}?rel=0&modestbranding=1&playsinline=1` : null;
   return (
     <Modal open={!!ex} onClose={onClose} wide>
@@ -1483,7 +1488,7 @@ function ExerciseModal({ ex, onClose, onSwap, equipment }) {
         {/* المشغّل المباشر: التشريح العضلي 3D يعمل فوراً أمام المستخدم */}
         <div className="grid md:grid-cols-3 gap-4 mb-5">
           <div className="md:col-span-2 flex flex-col">
-            {(vtab === "anatomy" ? anatomySrc : realSrc) ? (
+            {(vtab === "anatomy" && anatomySrc) || (vtab === "real" && realSrc) ? (
               <div className="bg-black border border-zinc-700 rounded-2xl overflow-hidden" style={{ aspectRatio: "16 / 9" }}>
                 <iframe
                   key={vtab + "-" + ex.name}
@@ -1495,7 +1500,7 @@ function ExerciseModal({ ex, onClose, onSwap, equipment }) {
                 />
               </div>
             ) : (
-              /* لا فيديو مؤكّد بعد لهذه المجموعة — نعرض التوضيح الحركي المدمج بدل رسالة خطأ */
+              /* العرض التوضيحي الحركي المدمج — متاح دائماً لكل تمرين */
               <div className="relative bg-zinc-950 border border-zinc-700 rounded-2xl overflow-hidden flex flex-col" style={{ aspectRatio: "16 / 9" }}>
                 <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: "linear-gradient(rgba(51,65,85,.35) 1px, transparent 1px), linear-gradient(90deg, rgba(51,65,85,.35) 1px, transparent 1px)", backgroundSize: "20px 20px" }} />
                 <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5 bg-zinc-900/90 border border-amber-400/40 text-amber-300 text-[10px] font-black px-2.5 py-1 rounded-full">
@@ -1504,25 +1509,28 @@ function ExerciseModal({ ex, onClose, onSwap, equipment }) {
                 <div className="flex-1 flex items-center justify-center">
                   <ExerciseAnimation pattern={pattern} paused={false} speed={1} />
                 </div>
-                <p className="relative z-10 text-center text-[10px] text-zinc-500 pb-2">فيديو التشريح 3D لهذه المجموعة قيد الإضافة</p>
               </div>
             )}
-            {anatomySrc && realSrc && (
-              <div className="flex gap-1.5 mt-2">
+            <div className="flex gap-1.5 mt-2 flex-wrap">
+              {anatomySrc && (
                 <button onClick={() => setVtab("anatomy")}
                   className={`text-[11px] font-black px-3 py-1.5 rounded-lg border transition-colors ${vtab === "anatomy" ? "bg-amber-400 border-amber-400 text-zinc-950" : "border-zinc-700 text-zinc-400 hover:border-amber-400/50"}`}>
                   🧬 تشريح عضلي 3D
                 </button>
+              )}
+              <button onClick={() => setVtab("motion")}
+                className={`text-[11px] font-black px-3 py-1.5 rounded-lg border transition-colors ${vtab === "motion" ? "bg-amber-400 border-amber-400 text-zinc-950" : "border-zinc-700 text-zinc-400 hover:border-amber-400/50"}`}>
+                🤖 توضيح حركي
+              </button>
+              {realSrc && (
                 <button onClick={() => setVtab("real")}
                   className={`text-[11px] font-black px-3 py-1.5 rounded-lg border transition-colors ${vtab === "real" ? "bg-amber-400 border-amber-400 text-zinc-950" : "border-zinc-700 text-zinc-400 hover:border-amber-400/50"}`}>
                   🎬 أداء واقعي
                 </button>
-              </div>
-            )}
-            {anatomySrc && (
-              <p className="text-[10px] text-zinc-600 mt-2">
-                🧬 تشريح عضلي ثلاثي الأبعاد — يوضّح العضلات العاملة أثناء الحركة · المصدر: Muscle and Motion عبر مشغّل يوتيوب الرسمي
-              </p>
+              )}
+            </div>
+            {vtab === "anatomy" && anatomySrc && (
+              <p className="text-[10px] text-zinc-600 mt-2">🧬 تشريح ثلاثي الأبعاد يوضّح العضلات العاملة · المصدر: عبر مشغّل يوتيوب الرسمي</p>
             )}
           </div>
           {/* الخريطة العضلية */}
@@ -2315,7 +2323,7 @@ function CalorieTracker({ profile, target, quickMeals }) {
 }
 
 // محرك التغذية: تحليل البيانات وحساب TDEE + خطة وجبات قابلة للتبديل
-function Nutrition({ profile }) {
+function Nutrition({ profile, onEditProfile }) {
   const [choice, setChoice] = useState({});
   const w = +profile.weight, h = +profile.height, a = +profile.age;
   const bf = parseFloat(profile.bodyfat);
@@ -2342,6 +2350,11 @@ function Nutrition({ profile }) {
         {hasBf ? <> · <b className="text-white">{bf}% دهون</b> (معادلة Katch-McArdle الأدق)</> : <> (معادلة Mifflin-St Jeor — أضف نسبة دهونك لدقة أعلى)</>}
         {" "}· {profile.days} أيام تمرين. هدفك <b className="text-amber-300">{goalWord}</b>،
         {adj < 0 ? ` لذا وضعنا عجزاً ${Math.round(Math.abs(adj) * 100)}% تحت احتياجك اليومي.` : adj > 0 ? ` لذا أضفنا فائضاً ${Math.round(adj * 100)}% فوق احتياجك اليومي.` : " لذا ثبّتنا سعراتك عند احتياجك اليومي."}
+        {onEditProfile && (
+          <button onClick={onEditProfile} className="block mt-2 text-xs font-black text-amber-300 hover:text-amber-200 underline underline-offset-4">
+            ⚙️ بياناتك تغيّرت؟ عدّلها هنا وسيُعاد الحساب فوراً
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -3244,12 +3257,68 @@ function UpgradeCard({ feature, onUpgrade }) {
   );
 }
 
-function Dashboard({ profile, plan, onUpgrade }) {
+/* محرر بيانات المشترك — يعدّل الوزن/الطول/العمر/الهدف/الأيام/المعدات في أي وقت.
+   الحفظ يعيد توليد البرنامج والتغذية فوراً ويُخزَّن للحساب (محلياً وسحابياً إن فُعّل). */
+function ProfileEditor({ open, profile, onClose, onSave }) {
+  const [f, setF] = useState(profile);
+  useEffect(() => { if (open) setF(profile); }, [open, profile]);
+  if (!open) return null;
+  const num = (v) => v === "" ? "" : Number(v);
+  const toggleEq = (eq) => setF((s) => ({ ...s, equipment: s.equipment.includes(eq) ? s.equipment.filter((x) => x !== eq) : [...s.equipment, eq] }));
+  const valid = +f.age >= 12 && +f.age <= 90 && +f.weight >= 30 && +f.weight <= 250 && +f.height >= 120 && +f.height <= 230 && f.equipment.length > 0;
+  return (
+    <Modal open={open} onClose={onClose}>
+      <h3 className="font-black text-xl mb-1">بياناتي ⚙️</h3>
+      <p className="text-zinc-400 text-sm mb-4">عدّل بياناتك متى شئت — برنامجك وسعراتك يُعاد حسابهما فوراً.</p>
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        {[["العمر", "age", "سنة"], ["الوزن", "weight", "كجم"], ["الطول", "height", "سم"]].map(([l, k, u]) => (
+          <div key={k}>
+            <label className="text-[11px] font-bold text-zinc-500 block mb-1">{l} ({u})</label>
+            <input type="number" value={f[k]} onChange={(e) => setF({ ...f, [k]: num(e.target.value) })} dir="ltr"
+              className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2.5 text-center font-bold focus:border-amber-400 focus:outline-none" />
+          </div>
+        ))}
+      </div>
+      <label className="text-[11px] font-bold text-zinc-500 block mb-1">هدفك</label>
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        {GOALS.map((g) => (
+          <button key={g.id} onClick={() => setF({ ...f, goal: g.id })}
+            className={`flex items-center gap-2 text-sm font-bold rounded-xl px-3 py-2.5 border transition-colors ${f.goal === g.id ? "bg-amber-400 border-amber-400 text-zinc-950" : "bg-zinc-950 border-zinc-700 text-zinc-300 hover:border-amber-400/50"}`}>
+            <g.icon size={15} /> {g.label}
+          </button>
+        ))}
+      </div>
+      <label className="text-[11px] font-bold text-zinc-500 block mb-1">أيام التمرين أسبوعياً</label>
+      <div className="flex gap-2 mb-3">
+        {[2, 3, 4, 5, 6].map((d) => (
+          <button key={d} onClick={() => setF({ ...f, days: d })}
+            className={`flex-1 font-black rounded-xl py-2.5 border transition-colors ${f.days === d ? "bg-amber-400 border-amber-400 text-zinc-950" : "bg-zinc-950 border-zinc-700 text-zinc-300 hover:border-amber-400/50"}`}>{d}</button>
+        ))}
+      </div>
+      <label className="text-[11px] font-bold text-zinc-500 block mb-1">المعدات المتاحة لك</label>
+      <div className="flex flex-wrap gap-2 mb-4">
+        {EQUIPMENT.map((eq) => (
+          <button key={eq} onClick={() => toggleEq(eq)}
+            className={`text-xs font-bold rounded-xl px-3.5 py-2 border transition-colors ${f.equipment.includes(eq) ? "bg-amber-400/15 border-amber-400/50 text-amber-300" : "bg-zinc-950 border-zinc-700 text-zinc-400 hover:border-zinc-500"}`}>{eq}</button>
+        ))}
+      </div>
+      {!valid && <p className="text-[11px] text-rose-400 font-bold mb-2">تأكد من صحة الأرقام واختيار معدّة واحدة على الأقل.</p>}
+      <div className="flex gap-2">
+        <button onClick={() => { if (valid) { onSave({ ...f, needsSetup: false }); onClose(); } }} disabled={!valid}
+          className="flex-1 bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-zinc-950 font-black py-3 rounded-xl transition-colors">حفظ وإعادة الحساب</button>
+        <button onClick={onClose} className="px-5 border border-zinc-700 text-zinc-400 hover:text-white rounded-xl font-bold transition-colors">إلغاء</button>
+      </div>
+    </Modal>
+  );
+}
+
+function Dashboard({ profile, plan, onUpgrade, onSaveProfile }) {
   const [tab, setTab] = useState("plan");
   const [swaps, setSwaps] = useState({});
   const [dayStatus, setDayStatus] = useState({});
   const [weightLog, setWeightLog] = useState([{ week: "البداية", weight: parseFloat(profile.weight) }]);
   const [dismissed, setDismissed] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const program = useMemo(() => generateProgram(profile), [profile]);
 
@@ -3290,9 +3359,13 @@ function Dashboard({ profile, plan, onUpgrade }) {
             ))}
           </nav>
           <div className="flex items-center gap-2 text-sm">
-            <span className={`border rounded-full px-3 py-1 text-xs font-bold flex items-center gap-1 ${isPremium ? "bg-amber-400/15 border-amber-400/40 text-amber-300" : "bg-zinc-800 border-zinc-700 text-zinc-300"}`}>
+            <span className={`border rounded-full px-3 py-1 text-xs font-bold hidden sm:flex items-center gap-1 ${isPremium ? "bg-amber-400/15 border-amber-400/40 text-amber-300" : "bg-zinc-800 border-zinc-700 text-zinc-300"}`}>
               <Crown size={12} /> {isPremium ? "Premium" : "أساسي"} · {plan?.name || "مشترك"}
             </span>
+            <button onClick={() => setEditOpen(true)} title="تعديل بياناتي"
+              className="flex items-center gap-1.5 bg-zinc-800 border border-zinc-700 hover:border-amber-400/60 hover:text-amber-300 text-zinc-300 rounded-full px-3 py-1.5 text-xs font-bold transition-colors">
+              <Settings size={13} /> بياناتي
+            </button>
             <div className="bg-zinc-800 border border-zinc-700 rounded-full w-8 h-8 flex items-center justify-center font-black text-amber-300 text-xs">
               {profile.name?.[0] || <User size={14} />}
             </div>
@@ -3301,6 +3374,15 @@ function Dashboard({ profile, plan, onUpgrade }) {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6">
+        {profile.needsSetup && (
+          <div className="max-w-5xl mx-auto mb-4 bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 flex items-center justify-between gap-3 flex-wrap">
+            <p className="text-sm text-zinc-200">
+              ⚠️ <b>بياناتك الحالية مبدئية</b> (75 كجم · 175 سم · 25 سنة) — أدخل بياناتك الحقيقية ليُبنى برنامجك وسعراتك عليها بدقة.
+            </p>
+            <button onClick={() => setEditOpen(true)}
+              className="bg-rose-500 hover:bg-rose-400 text-white font-black text-sm px-5 py-2.5 rounded-xl transition-colors whitespace-nowrap">أدخل بياناتي الآن</button>
+          </div>
+        )}
         {/* تنبيه المتابعة — يظهر عند تخطي تمرينين متتاليين */}
         {missedTwo && !dismissed && (
           <div className="mb-6 bg-amber-500/10 border-2 border-amber-500/40 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -3342,10 +3424,12 @@ function Dashboard({ profile, plan, onUpgrade }) {
 
         {tab === "plan" && <WorkoutPlan profile={profile} program={program} swaps={swaps} setSwaps={setSwaps} dayStatus={dayStatus} setDayStatus={setDayStatus} />}
         {tab === "progress" && <Progress profile={profile} weightLog={weightLog} setWeightLog={setWeightLog} dayStatus={dayStatus} />}
-        {tab === "nutrition" && <Nutrition profile={profile} />}
+        {tab === "nutrition" && <Nutrition profile={profile} onEditProfile={() => setEditOpen(true)} />}
         {tab === "community" && (isPremium ? <Community profile={profile} /> : <UpgradeCard feature="مجتمع الأبطال" onUpgrade={onUpgrade} />)}
         {tab === "coach" && (isPremium ? <Coach profile={profile} /> : <UpgradeCard feature="المتابعة الشخصية مع المدرب" onUpgrade={onUpgrade} />)}
       </main>
+
+      <ProfileEditor open={editOpen} profile={profile} onClose={() => setEditOpen(false)} onSave={onSaveProfile} />
 
       {/* تبويبات الجوال السفلية */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 bg-zinc-950/95 backdrop-blur border-t border-zinc-800 flex z-40">
@@ -3383,6 +3467,16 @@ export default function App() {
   const saveSession = (key, val) => {
     try { window.localStorage.setItem(key, JSON.stringify(val)); } catch {}
   };
+
+  // كل تغيير في الملف الشخصي يُحفظ: عاماً (للجلسة) + بمفتاح الحساب (يستعاد عند كل دخول) + سحابياً إن فُعّل
+  useEffect(() => {
+    if (!profile) return;
+    saveSession("jg_profile", profile);
+    if (profile.username || profile.email) {
+      saveSession(profileKey(profile), profile);
+      if (saveProfileCloud) saveProfileCloud(String(profile.username || profile.email), profile).catch(() => {});
+    }
+  }, [profile]);
   const clearSession = () => {
     try { ["jg_profile", "jg_plan", "jg_admin"].forEach((k) => window.localStorage.removeItem(k)); } catch {}
   };
@@ -3437,9 +3531,22 @@ export default function App() {
       {view === "login" && <Login onBack={() => setView("landing")} onLogin={(acc) => {
         // مشترك مُفعّل سجّل دخوله: ادخله للوحة التحكم ببياناته
         if (acc && acc.name) {
-          setProfile((prev) => prev
-            ? { ...prev, username: prev.username || acc.username || "", email: prev.email || acc.email || "" }
-            : { name: acc.name, username: acc.username || "", email: acc.email || "", age: 25, weight: 75, height: 175, days: 4, goal: acc.goal || "muscle", equipment: ["دمبل", "وزن الجسم"], injuries: [], weakPoints: [] });
+          const ident = { username: acc.username || "", email: acc.email || "" };
+          // استرجاع بيانات الجسم الحقيقية بالترتيب: المحفوظة لهذا الحساب على الجهاز ← بيانات الجلسة (Onboarding) ← ثم السحابة إن فُعّلت
+          let saved = null;
+          try { saved = JSON.parse(window.localStorage.getItem(profileKey({ ...ident, name: acc.name })) || "null"); } catch {}
+          setProfile((prev) => {
+            if (saved) return { ...saved, name: acc.name, ...ident };
+            if (prev) return { ...prev, name: prev.name || acc.name, username: prev.username || ident.username, email: prev.email || ident.email };
+            // لا بيانات معروفة: قيم مبدئية مع علامة "أكمل بياناتك" — لا نوهم المشترك بأرقام ليست له
+            return { name: acc.name, ...ident, age: 25, weight: 75, height: 175, days: 4, goal: acc.goal || "muscle", equipment: ["دمبل", "وزن الجسم"], injuries: [], weakPoints: [], needsSetup: true };
+          });
+          // ثم حاول السحابة (إن فُعّلت) — بياناتها أحدث وتتبع الحساب عبر الأجهزة
+          if (getProfileCloud) {
+            getProfileCloud(ident.username || ident.email || acc.name).then((r) => {
+              if (r && r.ok && r.profile) setProfile((cur) => ({ ...(cur || {}), ...r.profile, name: acc.name, ...ident, needsSetup: false }));
+            }).catch(() => {});
+          }
           setPlan({ tier: acc.tier || "basic", name: acc.plan || "مشترك", tierLabel: acc.tier === "premium" ? "اشتراك Premium" : "الاشتراك الأساسي" });
           setView("dashboard");
         } else {
@@ -3448,7 +3555,8 @@ export default function App() {
       }} />}
       {view === "onboarding" && <Onboarding onDone={(p) => { setProfile(p); setView("plans"); }} onBack={() => setView("landing")} />}
       {view === "plans" && <Plans coupons={coupons} currentPlan={plan} onSubscribed={(pl) => { setPlan(pl); setView("dashboard"); }} onBack={() => setView(plan ? "dashboard" : "onboarding")} />}
-      {view === "dashboard" && profile && <Dashboard profile={profile} plan={plan} onUpgrade={() => setView("plans")} />}
+      {view === "dashboard" && profile && <Dashboard profile={profile} plan={plan} onUpgrade={() => setView("plans")}
+        onSaveProfile={(p) => setProfile((cur) => ({ ...(cur || {}), ...p }))} />}
     </div>
     </SiteData.Provider>
   );
