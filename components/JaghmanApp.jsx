@@ -1536,6 +1536,7 @@ function ExerciseModal({ ex, onClose, onSwap, equipment }) {
      المجموعة التي لا فيديو لها بعد تعرض العرض التوضيحي الحركي المدمج — بلا رسالة خطأ. */
   // فيديو التشريح 3D — حُسب مبكراً (_anatomyId) قبل أي return لاحترام قواعد hooks
   const anatomyId = _anatomyId;
+  const pattern = PATTERN_OF[ex.name] || GROUP_PATTERN[ex.group] || "pressH";
   const ytId = (site.videos && site.videos[ex.name]) || JEFF_YT[ex.name] || null;
   const anatomySrc = anatomyId ? `https://www.youtube.com/embed/${anatomyId}?rel=0&modestbranding=1&playsinline=1` : null;
   const realSrc = ytId ? `https://www.youtube.com/embed/${ytId}?rel=0&modestbranding=1&playsinline=1` : null;
@@ -3524,11 +3525,10 @@ class ErrorBoundary extends React.Component {
               <AlertTriangle size={28} className="text-amber-300" />
             </div>
             <h2 className="font-black text-xl mb-2">حدث خطأ بسيط</h2>
-            <p className="text-zinc-400 text-sm mb-3">تعذّر عرض هذا الجزء. جرّب العودة للصفحة الرئيسية — بياناتك محفوظة.</p>
-            {this.state.msg && <p dir="ltr" className="text-[10px] text-rose-300/80 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2 mb-4 break-words text-left font-mono">{this.state.msg}</p>}
-            <button onClick={() => { this.reset(); try { window.location.hash = ""; window.location.reload(); } catch {} }}
+            <p className="text-zinc-400 text-sm mb-5">تعذّر عرض هذا الجزء. اضغط الزر للعودة — تبقى مسجّلاً دخولك وبياناتك محفوظة.</p>
+            <button onClick={() => { try { window.location.reload(); } catch { this.reset(); } }}
               className="bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black px-6 py-3 rounded-xl transition-colors">
-              العودة للرئيسية
+              العودة
             </button>
           </div>
         </div>
@@ -3567,6 +3567,11 @@ function App() {
       if (saveProfileCloud) saveProfileCloud(String(profile.username || profile.email), profile).catch(() => {});
     }
   }, [profile]);
+
+  // احفظ الاشتراك (plan) كلما تغيّر — بدونه لا تُستعاد الجلسة عند إعادة الفتح
+  useEffect(() => { if (plan) saveSession("jg_plan", plan); }, [plan]);
+  // احفظ حالة دخول المسؤول
+  useEffect(() => { try { window.localStorage.setItem("jg_admin", adminUnlocked ? "1" : "0"); } catch {} }, [adminUnlocked]);
   const clearSession = () => {
     try { ["jg_profile", "jg_plan", "jg_admin"].forEach((k) => window.localStorage.removeItem(k)); } catch {}
   };
