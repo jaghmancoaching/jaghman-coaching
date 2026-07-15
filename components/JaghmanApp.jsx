@@ -1041,8 +1041,19 @@ const PATTERN_OF = {
    انسخ ما بعد youtube.com/shorts/ والصقه هنا. أي تمرين بلا معرّف يعرض زراً
    يفتح البحث داخل قناته حصراً (لا يمكن أن يُظهر محتوى قناة أخرى). */
 const JEFF_CH = "https://www.youtube.com/@JeffNippard";
+/* فيديوهات أداء حقيقية (شخص يؤدي التمرين) — مدمجة لأشهر التمارين لتعمل فوراً بلا عمل من المشرف.
+   تُوسَّع بسهولة من لوحة الإدارة (تبويب فيديوهات 3D) أو هنا. المفتاح = اسم التمرين تماماً. */
 const JEFF_YT = {
-  "ضغط بار مستوي": "hWbUlkb5Ms4", // How To Bench Press With Perfect Technique (5 Steps)
+  "ضغط بار مستوي": "gRVjAtPip0Y",
+  "ضغط دمبل مستوي": "VmB1G1K7v94",
+  "سكوات بار خلفي": "ultWZbUMPL8",
+  "تجديف بار منحني": "9efgcAjQe7E",
+  "ضغط كتف بار واقف": "2yjwXTZQDDI",
+  "مرجحة بار": "kwG2ipFRgfo",
+  "دفع كيبل للأسفل": "2-LAMcpzODU",
+  "سحب علوي (عقلة)": "eGo4IYlbE5g",
+  "رفعة مميتة (Deadlift)": "op9kVnSso6Q",
+  "رفرفة جانبية دمبل": "3VcKaXpzqRo",
 };
 
 /* ─── التشريح العضلي 3D — قناة Muscle and Motion الرسمية ───
@@ -1501,12 +1512,12 @@ function MuscleMap({ group }) {
    ═══════════════════════════════════════════════════════════════ */
 
 function ExerciseModal({ ex, onClose, onSwap, equipment }) {
-  const [vtab, setVtab] = useState("motion");
+  const [vtab, setVtab] = useState("real");
   const site = useSite();
   // كل الـ hooks قبل أي return — قاعدة React. نحسب المصدر بأمان حتى لو ex غير موجود.
   const _anatomyId = ex ? ((site.anatomy && site.anatomy[ex.name]) || ANATOMY_YT[ex.name] || (site.anatomyByGroup && site.anatomyByGroup[ex.group]) || ANATOMY_BY_GROUP[ex.group] || null) : null;
   // العرض التوضيحي المدمج هو الافتراضي دائماً (يظهر فوراً بلا انتظار تحميل يوتيوب)
-  useEffect(() => { setVtab("motion"); }, [ex]);
+  useEffect(() => { setVtab("real"); }, [ex]);
 
   if (!ex) return null;
   const en = EN_OF[ex.name] || ex.name;
@@ -1514,7 +1525,6 @@ function ExerciseModal({ ex, onClose, onSwap, equipment }) {
      المجموعة التي لا فيديو لها بعد تعرض العرض التوضيحي الحركي المدمج — بلا رسالة خطأ. */
   // فيديو التشريح 3D — حُسب مبكراً (_anatomyId) قبل أي return لاحترام قواعد hooks
   const anatomyId = _anatomyId;
-  const pattern = PATTERN_OF[ex.name] || GROUP_PATTERN[ex.group] || "pressH";
   const ytId = (site.videos && site.videos[ex.name]) || JEFF_YT[ex.name] || null;
   const anatomySrc = anatomyId ? `https://www.youtube.com/embed/${anatomyId}?rel=0&modestbranding=1&playsinline=1` : null;
   const realSrc = ytId ? `https://www.youtube.com/embed/${ytId}?rel=0&modestbranding=1&playsinline=1` : null;
@@ -1527,53 +1537,50 @@ function ExerciseModal({ ex, onClose, onSwap, equipment }) {
         </div>
         <h3 className="font-black text-2xl mb-4">{ex.name}</h3>
 
-        {/* المشغّل المباشر: التشريح العضلي 3D يعمل فوراً أمام المستخدم */}
+        {/* المشغّل: فيديو أداء حقيقي أولاً (الأوضح للمبتدئ) ثم تشريح 3D */}
         <div className="grid md:grid-cols-3 gap-4 mb-5">
           <div className="md:col-span-2 flex flex-col">
-            {(vtab === "anatomy" && anatomySrc) || (vtab === "real" && realSrc) ? (
+            {(vtab === "real" && realSrc) || (vtab === "anatomy" && anatomySrc) ? (
               <div className="bg-black border border-zinc-700 rounded-2xl overflow-hidden" style={{ aspectRatio: "16 / 9" }}>
                 <iframe
                   key={vtab + "-" + ex.name}
-                  src={vtab === "anatomy" ? anatomySrc : realSrc}
-                  title={vtab === "anatomy" ? `التشريح العضلي 3D — ${ex.name}` : `الأداء الواقعي — ${ex.name}`}
+                  src={vtab === "real" ? realSrc : anatomySrc}
+                  title={vtab === "real" ? `شرح أداء التمرين — ${ex.name}` : `تشريح 3D — ${ex.name}`}
                   style={{ width: "100%", height: "100%", border: 0 }}
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
                 />
               </div>
             ) : (
-              /* العرض التوضيحي الحركي المدمج — متاح دائماً لكل تمرين */
-              <div className="relative bg-zinc-950 border border-zinc-700 rounded-2xl overflow-hidden flex flex-col" style={{ aspectRatio: "16 / 9" }}>
-                <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: "linear-gradient(rgba(51,65,85,.35) 1px, transparent 1px), linear-gradient(90deg, rgba(51,65,85,.35) 1px, transparent 1px)", backgroundSize: "20px 20px" }} />
-                <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5 bg-zinc-900/90 border border-amber-400/40 text-amber-300 text-[10px] font-black px-2.5 py-1 rounded-full">
-                  <Zap size={11} /> عرض توضيحي للحركة
-                </div>
-                <div className="flex-1 flex items-center justify-center">
-                  <ExerciseAnimation pattern={pattern} paused={false} speed={1} />
-                </div>
+              /* لا فيديو مُدمج بعد لهذا التمرين — زر واحد كبير يفتح شرحاً حقيقياً بنقرة (بلا شاشة فارغة) */
+              <div className="bg-zinc-950 border border-zinc-700 rounded-2xl flex flex-col items-center justify-center text-center p-6 gap-3" style={{ aspectRatio: "16 / 9" }}>
+                <div className="rounded-full p-4 bg-amber-400/15"><PlayCircle size={38} className="text-amber-400" /></div>
+                <p className="font-black text-base">شاهد شرح «{ex.name}»</p>
+                <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">فيديو حقيقي يوضّح الأداء الصحيح خطوة بخطوة على يوتيوب.</p>
+                <a href={`https://www.youtube.com/results?search_query=${encodeURIComponent("how to " + en + " proper form")}`}
+                  target="_blank" rel="noreferrer"
+                  className="bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black text-sm px-6 py-3 rounded-xl transition-all hover:scale-105">
+                  ▶ شاهد الفيديو التوضيحي ↗
+                </a>
               </div>
             )}
-            <div className="flex gap-1.5 mt-2 flex-wrap">
-              <button onClick={() => setVtab("motion")}
-                className={`text-[11px] font-black px-3 py-1.5 rounded-lg border transition-colors ${vtab === "motion" ? "bg-amber-400 border-amber-400 text-zinc-950" : "border-zinc-700 text-zinc-400 hover:border-amber-400/50"}`}>
-                🎯 عرض توضيحي
-              </button>
-              {anatomySrc && (
-                <button onClick={() => setVtab("anatomy")}
-                  className={`text-[11px] font-black px-3 py-1.5 rounded-lg border transition-colors ${vtab === "anatomy" ? "bg-amber-400 border-amber-400 text-zinc-950" : "border-zinc-700 text-zinc-400 hover:border-amber-400/50"}`}>
-                  🧬 تشريح عضلي 3D
-                </button>
-              )}
-              {realSrc && (
-                <button onClick={() => setVtab("real")}
-                  className={`text-[11px] font-black px-3 py-1.5 rounded-lg border transition-colors ${vtab === "real" ? "bg-amber-400 border-amber-400 text-zinc-950" : "border-zinc-700 text-zinc-400 hover:border-amber-400/50"}`}>
-                  🎬 أداء واقعي
-                </button>
-              )}
-            </div>
-            {vtab === "anatomy" && anatomySrc && (
-              <p className="text-[10px] text-zinc-600 mt-2">🧬 تشريح ثلاثي الأبعاد يوضّح العضلات العاملة · المصدر: عبر مشغّل يوتيوب الرسمي</p>
+            {(realSrc || anatomySrc) && (
+              <div className="flex gap-1.5 mt-2 flex-wrap">
+                {realSrc && (
+                  <button onClick={() => setVtab("real")}
+                    className={`text-[11px] font-black px-3 py-1.5 rounded-lg border transition-colors ${vtab === "real" ? "bg-amber-400 border-amber-400 text-zinc-950" : "border-zinc-700 text-zinc-400 hover:border-amber-400/50"}`}>
+                    ▶ شرح الأداء
+                  </button>
+                )}
+                {anatomySrc && (
+                  <button onClick={() => setVtab("anatomy")}
+                    className={`text-[11px] font-black px-3 py-1.5 rounded-lg border transition-colors ${vtab === "anatomy" ? "bg-amber-400 border-amber-400 text-zinc-950" : "border-zinc-700 text-zinc-400 hover:border-amber-400/50"}`}>
+                    🧬 تشريح عضلي 3D
+                  </button>
+                )}
+              </div>
             )}
+            <p className="text-[10px] text-zinc-600 mt-2">📹 الفيديوهات تُعرض عبر مشغّل يوتيوب الرسمي</p>
           </div>
           {/* الخريطة العضلية */}
           <div className="bg-zinc-950 border border-zinc-700 rounded-2xl p-3 flex flex-col justify-center">
